@@ -29,10 +29,14 @@ public interface IndexedSortable {
 	 */
 	int compare(int i, int j);
 
+	int compare(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset);
+
 	/**
 	 * Swap items at the given addresses.
 	 */
 	void swap(int i, int j);
+
+	void swap(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset);
 
 	/**
 	 * Gets the number of elements in the sortable.
@@ -41,4 +45,18 @@ public interface IndexedSortable {
 	 */
 	int size();
 
+	/**
+	 * Gets the size of each record, the number of bytes separating the head
+	 * of each record.
+	 *
+	 * @return The record size
+	 */
+	int recordSize();
+
+	/**
+	 * Gets the number of elements in each memory segment.
+	 *
+	 * @return The number of records per segment
+	 */
+	int recordsPerSegment();
 }
