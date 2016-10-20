@@ -26,6 +26,16 @@ public final class QuickSort implements IndexedSorter {
 	public QuickSort() {
 	}
 
+	/**
+	 * Fix the records into sorted order, swapping when the first record is
+	 * greater than the second record.
+	 *
+	 * @param s paged sortable
+	 * @param pN page number of first record
+	 * @param pO page offset of first record
+	 * @param rN page number of second record
+	 * @param rO page offset of second record
+	 */
 	private static void fix(IndexedSortable s, int pN, int pO, int rN, int rO) {
 		if (s.compare(pN, pO, rN, rO) > 0) {
 			s.swap(pN, pO, rN, rO);
@@ -45,8 +55,7 @@ public final class QuickSort implements IndexedSorter {
 
 	/**
 	 * Sort the given range of items using quick sort. {@inheritDoc} If the recursion depth falls below
-	 * {@link #getMaxDepth},
-	 * then switch to {@link HeapSort}.
+	 * {@link #getMaxDepth}, then switch to {@link HeapSort}.
 	 */
 	public void sort(final IndexedSortable s, int p, int r) {
 		int recordsPerSegment = s.recordsPerSegment();
@@ -65,6 +74,24 @@ public final class QuickSort implements IndexedSorter {
 		sort(s, 0, s.size());
 	}
 
+	/**
+	 * Sort the given range of items using quick sort. If the recursion depth falls below
+	 * {@link #getMaxDepth}, then switch to {@link HeapSort}.
+	 *
+	 * @param s paged sortable
+	 * @param recordsPerSegment number of records per memory segment
+	 * @param recordSize number of bytes per record
+	 * @param maxOffset offset of a last record in a memory segment
+	 * @param p index of first record in range
+	 * @param pN page number of first record in range
+	 * @param pO page offset of first record in range
+	 * @param r index of last-plus-one'th record in range
+	 * @param rN page number of last-plus-one'th record in range
+	 * @param rO page offset of last-plus-one'th record in range
+	 * @param depth recursion depth
+	 *
+	 * @see #sort(IndexedSortable, int, int)
+	 */
 	private static void sortInternal(final IndexedSortable s, int recordsPerSegment, int recordSize, int maxOffset,
 			int p, int pN, int pO, int r, int rN, int rO, int depth) {
 		while (true) {

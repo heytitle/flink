@@ -301,6 +301,7 @@ public final class FixedLengthRecordSorter<T> implements InMemorySorter<T> {
 		segI.swapBytes(this.swapBuffer, segJ, segmentOffsetI, segmentOffsetJ, this.recordSize);
 	}
 
+	@Override
 	public void swap(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset) {
 		final MemorySegment segI = this.sortBuffer.get(iBufferNumber);
 		final MemorySegment segJ = this.sortBuffer.get(jBufferNumber);
