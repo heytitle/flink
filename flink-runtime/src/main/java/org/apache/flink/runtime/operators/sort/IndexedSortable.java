@@ -29,6 +29,18 @@ public interface IndexedSortable {
 	 */
 	int compare(int i, int j);
 
+	/**
+	 * Compare records at the given addresses consistent with the semantics of
+	 * {@link java.util.Comparator#compare(Object, Object)}.
+
+	 * @param iBufferNumber index of memory segment containing first record
+	 * @param iBufferOffset offset into memory segment containing first record
+	 * @param jBufferNumber index of memory segment containing second record
+	 * @param jBufferOffset offset into memory segment containing second record
+	 * @return a negative integer, zero, or a positive integer as the
+	 *         first argument is less than, equal to, or greater than the
+	 *         second.
+	 */
 	int compare(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset);
 
 	/**
@@ -36,6 +48,14 @@ public interface IndexedSortable {
 	 */
 	void swap(int i, int j);
 
+	/**
+	 * Swap records at the given addresses.
+	 *
+	 * @param iBufferNumber index of memory segment containing first record
+	 * @param iBufferOffset offset into memory segment containing first record
+	 * @param jBufferNumber index of memory segment containing second record
+	 * @param jBufferOffset offset into memory segment containing second record
+	 */
 	void swap(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset);
 
 	/**
