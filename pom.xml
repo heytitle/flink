@@ -76,6 +76,7 @@ under the License.
 		<module>flink-dist</module>
 		<module>flink-mesos</module>
 		<module>flink-metrics</module>
+		<module>sorting-optimization</module>
 	</modules>
 
 	<properties>
