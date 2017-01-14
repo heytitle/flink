@@ -22,7 +22,7 @@ object JoinSomething {
   val env = ExecutionEnvironment.getExecutionEnvironment
   env.setParallelism(4)
 
-  val sorterName = "NormalizedKeySorter"
+  val sorterName = "HandWrittenSorter"
 
   def main(args: Array[String]) {
 
