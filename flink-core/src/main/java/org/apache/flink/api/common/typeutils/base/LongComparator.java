@@ -65,7 +65,7 @@ public final class LongComparator extends BasicTypeComparator<Long> {
 		// see IntValue for an explanation of the logic
 		if (numBytes == 8) {
 			// default case, full normalized key
-			target.putLongBigEndian(offset, value);
+			target.putLong(offset, value);
 		}
 		else if (numBytes <= 0) {
 		}
@@ -75,7 +75,7 @@ public final class LongComparator extends BasicTypeComparator<Long> {
 			}
 		}
 		else {
-			target.putLongBigEndian(offset, value);
+			target.putLong(offset, value);
 			for (int i = 8; i < numBytes; i++) {
 				target.put(offset + i, (byte) 0);
 			}
