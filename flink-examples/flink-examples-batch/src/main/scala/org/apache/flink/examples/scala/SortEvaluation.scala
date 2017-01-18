@@ -10,8 +10,8 @@ import org.apache.flink.api.common.operators.base.JoinOperatorBase.JoinHint
 import org.apache.flink.api.java.io.DiscardingOutputFormat
 import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.api.scala._
-
 import org.apache.flink.api.common.io.OutputFormat
+import org.apache.flink.core.fs.FileSystem
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -21,13 +21,13 @@ import scala.collection.mutable.ArrayBuffer
   */
 object SortEvaluation {
 
-  val warmup = 2
-  val totalRun = 10
+  val warmup = 1
+  val totalRun = 0
 
   val env = ExecutionEnvironment.getExecutionEnvironment
   env.setParallelism(4)
 
-  val sorterName = "HandWrittenSorter"
+  val sorterName = "OriginalSorter"
 
   val writeOutput = true
 
@@ -70,7 +70,7 @@ object SortEvaluation {
 
 
     if(writeOutput) {
-      val output = res.collect().mkString("\n")
+      val output = res.groupBy(0).sum(1).collect().mkString("\n")
       Files.write(Paths.get(s"result-${sorterName}-${fileSize}"), output.getBytes(StandardCharsets.UTF_8))
     }
     else {
@@ -82,6 +82,10 @@ object SortEvaluation {
   }
 
   def computeStats( l: List[Long] ) : (Double, Double) = {
+    if (l.size == 0 ) {
+      return (0, 0)
+    }
+
     val mean = l.sum / l.size
 
     val variance = l.map{ n => math.pow(n - mean,2) }.sum / ( l.size - 1 )
