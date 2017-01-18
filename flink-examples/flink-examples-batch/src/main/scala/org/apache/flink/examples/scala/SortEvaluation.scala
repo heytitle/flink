@@ -21,22 +21,22 @@ import scala.collection.mutable.ArrayBuffer
   */
 object SortEvaluation {
 
-  val warmup = 1
-  val totalRun = 0
+  val warmup = 2
+  val totalRun = 10
 
   val env = ExecutionEnvironment.getExecutionEnvironment
   env.setParallelism(4)
 
   val sorterName = "OriginalSorter"
 
-  val writeOutput = true
+  val writeOutput = false
 
   def main(args: Array[String]) {
 
 
     println(s"Collected from ${totalRun} runs with ${warmup} warmup")
 
-    val basket = List("100000") map { size =>
+    val basket = List("100000", "1000000", "10000000", "100000000") map { size =>
       val results = (0 until totalRun + warmup)
         .map( run(size, _) )
         .toList
