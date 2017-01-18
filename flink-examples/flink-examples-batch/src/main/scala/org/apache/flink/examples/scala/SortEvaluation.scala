@@ -1,12 +1,17 @@
 package org.apache.flink.examples.scala
 
+import java.io.DataInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import java.util
 
+import org.apache.flink.api.common.operators.Order
 import org.apache.flink.api.common.operators.base.JoinOperatorBase.JoinHint
+import org.apache.flink.api.java.io.DiscardingOutputFormat
 import org.apache.flink.api.java.utils.ParameterTool
 import org.apache.flink.api.scala._
+
+import org.apache.flink.api.common.io.OutputFormat
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -14,7 +19,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Created by heytitle on 1/13/17.
   */
-object JoinSomething {
+object SortEvaluation {
 
   val warmup = 2
   val totalRun = 10
@@ -24,21 +29,20 @@ object JoinSomething {
 
   val sorterName = "HandWrittenSorter"
 
+  val writeOutput = true
+
   def main(args: Array[String]) {
 
 
     println(s"Collected from ${totalRun} runs with ${warmup} warmup")
 
-    val basket = List("100000", "1000000", "10000000", "100000000") map { size =>
+    val basket = List("100000") map { size =>
       val results = (0 until totalRun + warmup)
         .map( run(size, _) )
         .toList
 
-      val (avg, std) = computeStats( results.drop(warmup).map(_._1) )
+      val (avg, std) = computeStats( results.drop(warmup) )
 
-
-      val output = results.head._2.sortBy(_._1._1).mkString("\n")
-      Files.write(Paths.get(s"result-${sorterName}-${size}"), output.getBytes(StandardCharsets.UTF_8))
       (size, avg, std )
     }
 
@@ -54,7 +58,7 @@ object JoinSomething {
 
   }
 
-  def run(fileSize: String, round:Int): (Long, Seq[((Long, Int), (Long, Int))]) = {
+  def run(fileSize: String, round:Int): Long = {
 
     env.getConfig.disableSysoutLogging()
     env.getConfig.enableObjectReuse()
@@ -62,15 +66,19 @@ object JoinSomething {
     val numbers = env.readTextFile(s"/Users/heytitle/projects/apache-flink/random-numbers-${fileSize}.txt")
       .map { s: String => (s.toLong, 1) }
 
-    val numbers2: DataSet[Tuple2[Long, Int]] = env.fromCollection(List(8, 9, 3, 5, 1, 2, 4, 0, 7))
-      .map {
-        (_, 1)
-      }
-    val joined = numbers.join(numbers2, JoinHint.REPARTITION_SORT_MERGE).where(0).equalTo(0);
+    val res  = numbers.sortPartition(0, Order.ASCENDING )
 
-    val res  = joined.collect()
 
-    return (env.getLastJobExecutionResult.getNetRuntime, res)
+    if(writeOutput) {
+      val output = res.collect().mkString("\n")
+      Files.write(Paths.get(s"result-${sorterName}-${fileSize}"), output.getBytes(StandardCharsets.UTF_8))
+    }
+    else {
+      res.output( new DiscardingOutputFormat[(Long, Int)])
+      env.execute()
+    }
+
+    return env.getLastJobExecutionResult.getNetRuntime
   }
 
   def computeStats( l: List[Long] ) : (Double, Double) = {
