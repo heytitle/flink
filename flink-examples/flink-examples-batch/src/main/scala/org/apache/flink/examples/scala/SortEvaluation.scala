@@ -27,7 +27,7 @@ object SortEvaluation {
   val env = ExecutionEnvironment.getExecutionEnvironment
   env.setParallelism(4)
 
-  val sorterName = "OriginalSorter"
+  val sorterName = "HandWrittenSorter"
 
   val writeOutput = false
 
