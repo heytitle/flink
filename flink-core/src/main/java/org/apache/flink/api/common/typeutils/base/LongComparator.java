@@ -61,11 +61,11 @@ public final class LongComparator extends BasicTypeComparator<Long> {
 	@Override
 	public void putNormalizedKey(Long lValue, MemorySegment target, int offset, int numBytes) {
 		long value = lValue.longValue() - Long.MIN_VALUE;
-		
+
 		// see IntValue for an explanation of the logic
 		if (numBytes == 8) {
 			// default case, full normalized key
-			target.putLong(offset, value);
+			target.putLongBigEndian(offset, value);
 		}
 		else if (numBytes <= 0) {
 		}
@@ -75,7 +75,7 @@ public final class LongComparator extends BasicTypeComparator<Long> {
 			}
 		}
 		else {
-			target.putLong(offset, value);
+			target.putLongBigEndian(offset, value);
 			for (int i = 8; i < numBytes; i++) {
 				target.put(offset + i, (byte) 0);
 			}
