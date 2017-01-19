@@ -34,12 +34,12 @@ import org.apache.flink.util.MutableObjectIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.math.RoundingMode;
-import com.google.common.math.LongMath;
-
+/**
+ *
+ */
 public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 
-	private static final Logger LOG = LoggerFactory.getLogger(org.apache.flink.runtime.operators.sort.NormalizedKeySorter.class);
+	private static final Logger LOG = LoggerFactory.getLogger(NormalizedKeySorter.class);
 
 	private static final int OFFSET_LEN = 8;
 
@@ -103,7 +103,6 @@ public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 
 	private final boolean useNormKeyUninverted;
 
-	private final int shiftBitsIndexEntriesPerSegment;
 
 	// -------------------------------------------------------------------------
 	// Constructors / Destructors
@@ -114,9 +113,8 @@ public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 	}
 
 	public NormalizedKeySorter(TypeSerializer<T> serializer, TypeComparator<T> comparator,
-					List<MemorySegment> memory, int maxNormalizedKeyBytes)
+							   List<MemorySegment> memory, int maxNormalizedKeyBytes)
 	{
-
 		if (serializer == null || comparator == null || memory == null) {
 			throw new NullPointerException();
 		}
@@ -176,8 +174,6 @@ public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 		// set to initial state
 		this.currentSortIndexSegment = nextMemorySegment();
 		this.sortIndex.add(this.currentSortIndexSegment);
-
-		this.shiftBitsIndexEntriesPerSegment = LongMath.log2(this.indexEntriesPerSegment, RoundingMode.UNNECESSARY);
 	}
 
 	// -------------------------------------------------------------------------
@@ -349,49 +345,44 @@ public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 
 	@Override
 	public int compare(int i, int j) {
-		final int bufferNumI = i >> this.shiftBitsIndexEntriesPerSegment;
-		final int segmentOffsetI = (i & (this.indexEntriesPerSegment-1) ) * this.indexEntrySize;
+		final int bufferNumI = i / this.indexEntriesPerSegment;
+		final int segmentOffsetI = (i % this.indexEntriesPerSegment) * this.indexEntrySize;
 
-		final int bufferNumJ = j >> this.shiftBitsIndexEntriesPerSegment;
-		final int segmentOffsetJ = (j & (this.indexEntriesPerSegment-1) ) * this.indexEntrySize;
+		final int bufferNumJ = j / this.indexEntriesPerSegment;
+		final int segmentOffsetJ = (j % this.indexEntriesPerSegment) * this.indexEntrySize;
 
 		final MemorySegment segI = this.sortIndex.get(bufferNumI);
 		final MemorySegment segJ = this.sortIndex.get(bufferNumJ);
 
-		int val = this.fastCompare(segI, segJ, segmentOffsetI + OFFSET_LEN, segmentOffsetJ + OFFSET_LEN);
+		int val = segI.compare(segJ, segmentOffsetI + OFFSET_LEN, segmentOffsetJ + OFFSET_LEN, this.numKeyBytes);
 
-		return val;
+		if (val != 0 || this.normalizedKeyFullyDetermines) {
+			return this.useNormKeyUninverted ? val : -val;
+		}
+
+		final long pointerI = segI.getLong(segmentOffsetI) & POINTER_MASK;
+		final long pointerJ = segJ.getLong(segmentOffsetJ) & POINTER_MASK;
+
+		return compareRecords(pointerI, pointerJ);
 	}
 
 	@Override
 	public void swap(int i, int j) {
-		final int bufferNumI = i >> this.shiftBitsIndexEntriesPerSegment;
-		final int segmentOffsetI = (i & (this.indexEntriesPerSegment-1) ) * this.indexEntrySize;
+		final int bufferNumI = i / this.indexEntriesPerSegment;
+		final int segmentOffsetI = (i % this.indexEntriesPerSegment) * this.indexEntrySize;
 
-		final int bufferNumJ = j >> this.shiftBitsIndexEntriesPerSegment;
-		final int segmentOffsetJ = (j & (this.indexEntriesPerSegment-1) ) * this.indexEntrySize;
+		final int bufferNumJ = j / this.indexEntriesPerSegment;
+		final int segmentOffsetJ = (j % this.indexEntriesPerSegment) * this.indexEntrySize;
 
 		final MemorySegment segI = this.sortIndex.get(bufferNumI);
 		final MemorySegment segJ = this.sortIndex.get(bufferNumJ);
 
-		this.fastSwapBytes(segI, segJ, segmentOffsetI, segmentOffsetJ);
+		segI.swapBytes(this.swapBuffer, segJ, segmentOffsetI, segmentOffsetJ, this.indexEntrySize);
 	}
 
 	@Override
 	public int size() {
 		return this.numRecords;
-	}
-
-	int[] getSegmentOffset( int i ) {
-		if (this.shiftBitsIndexEntriesPerSegment == 0) {
-			final int bufferNumI = i / this.indexEntriesPerSegment;
-			final int segmentOffsetI = (i % this.indexEntriesPerSegment) * this.indexEntrySize;
-			return new int[] { bufferNumI, segmentOffsetI };
-		} else {
-			final int bufferNumI = i >> this.shiftBitsIndexEntriesPerSegment;
-			final int segmentOffsetI = (i & (this.indexEntriesPerSegment-1) ) * this.indexEntrySize;
-			return new int[] { bufferNumI, segmentOffsetI };
-		}
 	}
 
 	// -------------------------------------------------------------------------
@@ -557,28 +548,5 @@ public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 			}
 			offset = 0;
 		}
-	}
-
-	public final int fastCompare(MemorySegment seg1, MemorySegment seg2, int offset1, int offset2) {
-
-		long l1 = seg1.getLong(offset1);
-		long l2 = seg2.getLong(offset2);
-
-		if(l1 != l2) {
-			return l1 < l2 ^ l1 < 0L ^ l2 < 0L? -1 : 1 ;
-		}
-
-		return 0;
-	}
-
-	public final void fastSwapBytes(MemorySegment seg1, MemorySegment seg2, int offset1, int offset2) {
-		long temp1 = seg1.getLong(offset1);
-		long temp2 = seg1.getLong(offset1+8);
-
-		seg1.putLong(offset1, seg2.getLong(offset2));
-		seg1.putLong(offset1+8, seg2.getLong(offset2+8));
-
-		seg2.putLong(offset2, temp1);
-		seg2.putLong(offset2+8, temp2);
 	}
 }
