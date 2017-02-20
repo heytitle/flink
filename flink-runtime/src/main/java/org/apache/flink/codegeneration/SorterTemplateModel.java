@@ -1,9 +1,6 @@
 package org.apache.flink.codegeneration;
 
-import org.apache.hadoop.util.hash.Hash;
-
 import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Created by heytitle on 2/19/17.
