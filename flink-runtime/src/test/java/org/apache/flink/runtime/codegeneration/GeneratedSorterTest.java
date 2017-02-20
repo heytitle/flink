@@ -16,16 +16,14 @@
  * limitations under the License.
  */
 
-
 package org.apache.flink.runtime.codegeneration;
 
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.codegeneration.SorterFactory;
+import org.apache.flink.runtime.codegeneration.SorterFactory;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemoryType;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.operators.sort.InMemorySorter;
-import org.apache.flink.runtime.operators.sort.NormalizedKeySorter;
 import org.apache.flink.runtime.operators.sort.QuickSort;
 import org.apache.flink.runtime.operators.testutils.DummyInvokable;
 import org.apache.flink.runtime.operators.testutils.TestData;

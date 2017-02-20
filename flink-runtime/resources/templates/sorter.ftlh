@@ -16,11 +16,6 @@
  * limitations under the License.
  */
 
-import java.io.EOFException;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.memory.MemorySegment;
@@ -32,7 +27,13 @@ import org.apache.flink.util.MutableObjectIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.flink.runtime.operators.sort.*;
+import java.io.EOFException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.flink.runtime.operators.sort.InMemorySorter;
+import org.apache.flink.runtime.operators.sort.LargeRecordHandler;
 
 public final class ${name}<T> implements InMemorySorter<T> {
 
@@ -164,13 +165,23 @@ public final class ${name}<T> implements InMemorySorter<T> {
 
 		// compute the index entry size and limits
 		this.indexEntrySize = this.numKeyBytes + OFFSET_LEN;
-		this.indexEntriesPerSegment = segmentSize / this.indexEntrySize;
+		this.indexEntriesPerSegment = this.segmentSize / this.indexEntrySize;
 		this.lastIndexEntryOffset = (this.indexEntriesPerSegment - 1) * this.indexEntrySize;
 		this.swapBuffer = new byte[this.indexEntrySize];
 
 		// set to initial state
 		this.currentSortIndexSegment = nextMemorySegment();
 		this.sortIndex.add(this.currentSortIndexSegment);
+	}
+
+	@Override
+	public int recordSize() {
+		return indexEntrySize;
+	}
+
+	@Override
+	public int recordsPerSegment() {
+		return indexEntriesPerSegment;
 	}
 
 	// -------------------------------------------------------------------------
@@ -304,8 +315,7 @@ public final class ${name}<T> implements InMemorySorter<T> {
 		final int bufferNum = logicalPosition / this.indexEntriesPerSegment;
 		final int segmentOffset = logicalPosition % this.indexEntriesPerSegment;
 
-        MemorySegment memorySegment = (MemorySegment)this.sortIndex.get(bufferNum);
-		return (memorySegment.getLong(segmentOffset * this.indexEntrySize)) & POINTER_MASK;
+		return (((MemorySegment)this.sortIndex.get(bufferNum)).getLong(segmentOffset * this.indexEntrySize)) & POINTER_MASK;
 	}
 
 	private T getRecordFromBuffer(T reuse, long pointer) throws IOException {
@@ -365,6 +375,23 @@ public final class ${name}<T> implements InMemorySorter<T> {
 	}
 
 	@Override
+	public int compare(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset) {
+		final MemorySegment segI = (MemorySegment)this.sortIndex.get(iBufferNumber);
+		final MemorySegment segJ = (MemorySegment)this.sortIndex.get(jBufferNumber);
+
+		int val = segI.compare(segJ, iBufferOffset + OFFSET_LEN, jBufferOffset + OFFSET_LEN, this.numKeyBytes);
+
+		if (val != 0 || this.normalizedKeyFullyDetermines) {
+			return this.useNormKeyUninverted ? val : -val;
+		}
+
+		final long pointerI = segI.getLong(iBufferOffset) & POINTER_MASK;
+		final long pointerJ = segJ.getLong(jBufferOffset) & POINTER_MASK;
+
+		return compareRecords(pointerI, pointerJ);
+	}
+
+	@Override
 	public void swap(int i, int j) {
 		final int bufferNumI = i / this.indexEntriesPerSegment;
 		final int segmentOffsetI = (i % this.indexEntriesPerSegment) * this.indexEntrySize;
@@ -376,6 +403,16 @@ public final class ${name}<T> implements InMemorySorter<T> {
 		final MemorySegment segJ = (MemorySegment)this.sortIndex.get(bufferNumJ);
 
 		segI.swapBytes(this.swapBuffer, segJ, segmentOffsetI, segmentOffsetJ, this.indexEntrySize);
+	}
+
+	@Override
+	public void swap(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset) {
+		final MemorySegment segI = (MemorySegment)this.sortIndex.get(iBufferNumber);
+		final MemorySegment segJ = (MemorySegment)this.sortIndex.get(jBufferNumber);
+
+		${swapProcedures}
+
+		//segI.swapBytes(this.swapBuffer, segJ, iBufferOffset, jBufferOffset, this.indexEntrySize);
 	}
 
 	@Override
@@ -549,8 +586,8 @@ public final class ${name}<T> implements InMemorySorter<T> {
 	}
 
 	@Override
-	public String toString() {
-		return "This is a generated sorter : ${name}";
+	public String toString(){
+	    return "${name} : this is a generated sorter";
 	}
 }
 
