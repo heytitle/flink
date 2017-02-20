@@ -10,6 +10,7 @@ import org.codehaus.janino.JavaSourceClassLoader;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,17 +21,19 @@ public class SorterFactory {
 	/* Set up janino */
 	private static final ClassLoader cl = new JavaSourceClassLoader(
 		SorterFactory.class.getClassLoader(),
-		new File[] { new File(TemplateManager.GENERATING_PATH) }, // optionalSourcePath
-		(String) null                     // optionalCharacterEncoding
+		new File[] { new File(TemplateManager.GENERATING_PATH) },
+		"UTF-8"
 	);
 
-	public static NormalizedKeySorter createSorter(TypeSerializer serializer, TypeComparator comparator, List<MemorySegment> memory ) throws IOException, TemplateException, ClassNotFoundException, IllegalAccessException, InstantiationException {
+	public static InMemorySorter createSorter(TypeSerializer serializer, TypeComparator comparator, List<MemorySegment> memory ) throws IOException, TemplateException, ClassNotFoundException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
 		String className = TemplateManager.getGeneratedCode(new SorterTemplateModel());
 
-		Object myClass = cl.loadClass(className).newInstance();
+		Object mySorter = cl.loadClass(className).getConstructor(
+			TypeSerializer.class, TypeComparator.class, List.class
+		).newInstance( serializer, comparator, memory);
 
-		System.out.println(">> " + myClass.toString());
+		System.out.println(">> " + mySorter.toString());
 
-		return new NormalizedKeySorter(serializer, comparator, memory);
+		return (InMemorySorter)mySorter;
 	}
 }
