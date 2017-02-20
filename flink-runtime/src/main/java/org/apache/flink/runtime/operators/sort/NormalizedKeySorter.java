@@ -41,9 +41,9 @@ public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 	
 	private static final Logger LOG = LoggerFactory.getLogger(NormalizedKeySorter.class);
 	
-	private static final int OFFSET_LEN = 8;
+	public static final int OFFSET_LEN = 8;
 	
-	private static final int DEFAULT_MAX_NORMALIZED_KEY_LEN = 16;
+	public static final int DEFAULT_MAX_NORMALIZED_KEY_LEN = 16;
 	
 	private static final int MAX_NORMALIZED_KEY_LEN_PER_ELEMENT = 8;
 	
@@ -161,6 +161,7 @@ public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 			this.normalizedKeyFullyDetermines = !this.comparator.isNormalizedKeyPrefixOnly(this.numKeyBytes);
 		}
 		else {
+			// TODO: Is this part  necessary? seems the condtion  always holds
 			this.numKeyBytes = 0;
 			this.normalizedKeyFullyDetermines = false;
 		}
@@ -365,7 +366,7 @@ public final class NormalizedKeySorter<T> implements InMemorySorter<T> {
 		final MemorySegment segJ = this.sortIndex.get(bufferNumJ);
 		
 		int val = segI.compare(segJ, segmentOffsetI + OFFSET_LEN, segmentOffsetJ + OFFSET_LEN, this.numKeyBytes);
-		
+
 		if (val != 0 || this.normalizedKeyFullyDetermines) {
 			return this.useNormKeyUninverted ? val : -val;
 		}
