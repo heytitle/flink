@@ -500,7 +500,6 @@ public class GeneratedSorterTest {
 		);
 
 		InMemorySorter<Tuple2<Tuple2<Long, Integer>, Integer>> sorter = createSorter( serializer, comparators, memory);
-//		InMemorySorter<Tuple2<Tuple2<Long, Integer>, Integer>> sorter = new NormalizedKeySorter<>(serializer, comparators, memory);
 
 		Random randomGenerator = new Random(SEED);
 
