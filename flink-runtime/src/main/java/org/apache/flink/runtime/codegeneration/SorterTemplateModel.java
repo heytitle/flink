@@ -18,9 +18,9 @@
 
 package org.apache.flink.runtime.codegeneration;
 
+import org.apache.commons.lang.WordUtils;
 import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.runtime.operators.sort.NormalizedKeySorter;
-import scala.runtime.StringFormat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,24 +30,22 @@ public class SorterTemplateModel {
 	private final static Integer[] POSSIBLE_FIXEDBYTE_OPERRATORS = {8,4,2,1};
 	public final static String TEMPLATE_NAME = "sorter.ftlh";
 
-	private final HashMap<Integer,String> BYTE_TO_PRIMITIVE;
+	private final HashMap<Integer,String> byteOperatorMapping;
 	private final TypeComparator typeComparator;
 	private final ArrayList<Integer> byteOperators;
 	private final String sorterName;
-
-	String dummyName = "SomethingSorter";
 
 	public SorterTemplateModel(TypeComparator typeComparator){
 		this.typeComparator = typeComparator;
 
 		this.byteOperators = generatedSequenceFixedByteOperators(typeComparator.getNormalizeKeyLen());
 
-		this.BYTE_TO_PRIMITIVE = new HashMap<>();
+		this.byteOperatorMapping = new HashMap<>();
 
-		this.BYTE_TO_PRIMITIVE.put(8, "Long");
-		this.BYTE_TO_PRIMITIVE.put(4, "Float");
-		this.BYTE_TO_PRIMITIVE.put(2, "Char");
-		this.BYTE_TO_PRIMITIVE.put(1, "Byte");
+		this.byteOperatorMapping.put(8, "Long");
+		this.byteOperatorMapping.put(4, "Int");
+		this.byteOperatorMapping.put(2, "Short");
+		this.byteOperatorMapping.put(1, "Byte");
 
 		this.sorterName = generateCodeFilename();
 
@@ -61,7 +59,7 @@ public class SorterTemplateModel {
 		String name = "";
 
 		for( Integer opt : byteOperators ) {
-			name += BYTE_TO_PRIMITIVE.get(opt);
+			name += byteOperatorMapping.get(opt);
 		}
 
 		name += "Sorter";
@@ -128,22 +126,25 @@ public class SorterTemplateModel {
 			String firstSegmentString = "";
 			String secondSegmentString = "";
 
+			int accOffset = 0;
 			for( int i = 0; i  < byteOperators.size(); i++ ){
 				int numberByte = byteOperators.get(i);
 				int varIndex  = i+1;
 
-				String primitiveType = BYTE_TO_PRIMITIVE.get(numberByte);
+				String primitiveClass = byteOperatorMapping.get(numberByte);
+				String primitiveType  = primitiveClass.toLowerCase();
 
 				String offsetString = "";
 				if( i > 0 ) {
-					offsetString = "+" + byteOperators.get(i-1);
+					accOffset += byteOperators.get(i-1);
+					offsetString = "+" + accOffset;
 				}
 
-				temporaryString      += String.format("%s temp%d = segI.get%s(iBufferOffset%s);\n",primitiveType, varIndex, primitiveType, offsetString );
+				temporaryString     += String.format("%s temp%d = segI.get%s(iBufferOffset%s);\n",primitiveType, varIndex, primitiveClass, offsetString );
 
-				firstSegmentString += String.format("segI.put%s(iBufferOffset%s, segJ.get%s(jBufferOffset%s));\n", primitiveType, offsetString, primitiveType, offsetString);
+				firstSegmentString  += String.format("segI.put%s(iBufferOffset%s, segJ.get%s(jBufferOffset%s));\n", primitiveClass, offsetString, primitiveClass, offsetString);
 
-				secondSegmentString += String.format("segJ.put%s(jBufferOffset%s, temp%d);\n", primitiveType, offsetString, varIndex);
+				secondSegmentString += String.format("segJ.put%s(jBufferOffset%s, temp%d);\n", primitiveClass, offsetString, varIndex);
 
 			}
 
