@@ -19,11 +19,18 @@
 
 package org.apache.flink.runtime.operators.sort;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Random;
 import org.apache.flink.api.common.typeutils.TypeComparator;
 
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.base.BigDecComparator;
+import org.apache.flink.api.common.typeutils.base.BigDecSerializer;
+import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.runtime.TupleComparator;
+import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemoryType;
 import org.apache.flink.runtime.memory.MemoryManager;
@@ -440,6 +447,62 @@ public class NormalizedKeySorterTest {
 			last = current;
 		}
 		
+		// release the memory occupied by the buffers
+		sorter.dispose();
+		this.memoryManager.release(memory);
+	}
+
+	@Test
+	public void testSortBigDecTypeKeys() throws Exception {
+		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
+		final List<MemorySegment> memory = this.memoryManager.allocatePages(new DummyInvokable(), numSegments);
+
+		@SuppressWarnings("unchecked")
+
+		TypeSerializer[] insideSerializers = {
+			BigDecSerializer.INSTANCE, IntSerializer.INSTANCE
+		};
+
+		TupleSerializer<Tuple2<BigDecimal,Integer>> serializer = new TupleSerializer<>(
+			(Class<Tuple2<BigDecimal, Integer>>) (Class<?>) Tuple2.class, insideSerializers
+		);
+
+		TupleComparator<Tuple2<BigDecimal, Integer>> comparators = new TupleComparator<>(
+			new int[]{0}, new TypeComparator[]{ new BigDecComparator(true) }, insideSerializers
+		);
+
+		InMemorySorter<Tuple2<BigDecimal, Integer>> sorter = new NormalizedKeySorter<Tuple2<BigDecimal, Integer>>(serializer, comparators, memory);
+
+		Random randomGenerator = new Random(SEED);
+
+		Tuple2<BigDecimal, Integer> record = new Tuple2<>();
+		do {
+			record.setFields(BigDecimal.valueOf(randomGenerator.nextLong()), randomGenerator.nextInt());
+		}
+		while (sorter.write(record));
+
+		QuickSort qs = new QuickSort();
+		qs.sort(sorter);
+
+		MutableObjectIterator<Tuple2<BigDecimal, Integer>> iter = sorter.getIterator();
+		Tuple2<BigDecimal, Integer> readTarget = new Tuple2<>();
+
+		iter.next(readTarget);
+		BigDecimal last = readTarget.f0;
+
+		while ((readTarget = iter.next(readTarget)) != null) {
+			BigDecimal current = readTarget.f0;
+
+			final int cmp = last.compareTo(current);
+			if (cmp > 0) {
+				System.out.println(last);
+				System.out.println(current);
+				Assert.fail("Next value is not larger or equal to previous value.");
+			}
+
+			last = current;
+		}
+
 		// release the memory occupied by the buffers
 		sorter.dispose();
 		this.memoryManager.release(memory);
