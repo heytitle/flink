@@ -18,24 +18,18 @@
 
 package org.apache.flink.runtime.codegeneration;
 
-import com.esotericsoftware.kryo.serializers.DefaultSerializers;
-import com.twitter.chill.Tuple2Serializer;
 import freemarker.template.TemplateException;
-import org.apache.commons.math.random.RandomGenerator;
-import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.*;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.runtime.TupleComparator;
 import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
-import org.apache.flink.runtime.codegeneration.SorterFactory;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemoryType;
 import org.apache.flink.runtime.memory.MemoryAllocationException;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.operators.sort.InMemorySorter;
-import org.apache.flink.runtime.operators.sort.NormalizedKeySorter;
 import org.apache.flink.runtime.operators.sort.QuickSort;
 import org.apache.flink.runtime.operators.testutils.DummyInvokable;
 import org.apache.flink.runtime.operators.testutils.TestData;
@@ -46,8 +40,6 @@ import org.junit.*;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 import java.util.Random;
 
@@ -67,11 +59,13 @@ public class GeneratedSorterTest {
 	private static final int MEMORY_PAGE_SIZE = 32 * 1024; 
 
 	private MemoryManager memoryManager;
+	private SorterFactory sorterFactory;
 
 
 	@Before
-	public void beforeTest() {
+	public void beforeTest() throws IOException {
 		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, MEMORY_PAGE_SIZE, MemoryType.HEAP, true);
+		this.sorterFactory = SorterFactory.getInstance();
 	}
 
 	@After
@@ -87,7 +81,7 @@ public class GeneratedSorterTest {
 	}
 
 	private InMemorySorter<Tuple2<Integer, String>> newSortBuffer(List<MemorySegment> memory) throws Exception {
-		return SorterFactory.createSorter(TestData.getIntStringTupleSerializer(), TestData.getIntStringTupleComparator(), memory);
+		return this.sorterFactory.createSorter(TestData.getIntStringTupleSerializer(), TestData.getIntStringTupleComparator(), memory);
 	}
 
 	@Test
@@ -465,6 +459,78 @@ public class GeneratedSorterTest {
 	}
 
 	@Test
+	public void testSort12BytesIntegerKeys() throws Exception {
+		// Tuple( (Int,Long), Int )
+
+		@SuppressWarnings("unchecked")
+		List<MemorySegment> memory = createMemory();
+
+		TypeSerializer keySerializer = new TupleSerializer(Tuple2.class, new TypeSerializer[]{
+			IntSerializer.INSTANCE,
+			LongSerializer.INSTANCE
+		});
+
+		TypeComparator keyComparator = new TupleComparator(
+			new int[]{0,1},
+			new TypeComparator[]{
+				new IntComparator(true),
+				new LongComparator(true)
+			},
+			new TypeSerializer[] { keySerializer }
+		);
+
+		TypeSerializer[] insideSerializers = {
+			keySerializer,
+			IntSerializer.INSTANCE
+		};
+
+		TupleSerializer<Tuple2<Tuple2<Integer,Long>,Integer>> serializer = new TupleSerializer<>(
+			(Class<Tuple2<Tuple2<Integer,Long>, Integer>>) (Class<?>) Tuple2.class, insideSerializers
+		);
+
+		TupleComparator<Tuple2<Tuple2<Integer,Long>, Integer>> comparators = new TupleComparator<>(
+			new int[]{0}, new TypeComparator[]{ keyComparator },
+			insideSerializers
+		);
+
+		InMemorySorter<Tuple2<Tuple2<Integer,Long>, Integer>> sorter = createSorter( serializer, comparators, memory);
+
+		Random randomGenerator = new Random(SEED);
+
+		Tuple2<Tuple2<Integer,Long>, Integer> record = new Tuple2<>();
+		do {
+
+			Tuple2<Integer,Long> insideTp = new Tuple2<>();
+			insideTp.setFields(randomGenerator.nextInt(), randomGenerator.nextLong());
+			record.setFields(insideTp, randomGenerator.nextInt());
+		}
+		while (sorter.write(record));
+
+		QuickSort qs = new QuickSort();
+		qs.sort(sorter);
+
+		MutableObjectIterator<Tuple2<Tuple2<Integer,Long>, Integer>> iter = sorter.getIterator();
+		Tuple2<Tuple2<Integer,Long>, Integer> readTarget = iter.next();
+
+		Tuple2<Integer,Long> last = readTarget.f0;
+
+		while ((readTarget = iter.next()) != null) {
+			Tuple2<Integer,Long> current = readTarget.f0;
+
+			final int cmp = keyComparator.compare(last, current);
+			if (cmp > 0) {
+				Assert.fail("Next value is not larger or equal to previous value.");
+			}
+
+			last = current;
+		}
+
+		// release the memory occupied by the buffers
+		sorter.dispose();
+		this.memoryManager.release(memory);
+	}
+
+	@Test
 	public void testSort12BytesKeys() throws Exception {
 		// Tuple( (Long,Int), Int )
 
@@ -507,8 +573,8 @@ public class GeneratedSorterTest {
 		do {
 
 			Tuple2<Long,Integer> insideTp = new Tuple2<>();
-			insideTp.setFields(2L, randomGenerator.nextInt());
-			record.setFields( insideTp, randomGenerator.nextInt());
+			insideTp.setFields(randomGenerator.nextLong(), randomGenerator.nextInt());
+			record.setFields(insideTp, randomGenerator.nextInt());
 		}
 		while (sorter.write(record));
 
@@ -536,8 +602,228 @@ public class GeneratedSorterTest {
 		this.memoryManager.release(memory);
 	}
 
+	@Test
+	public void testSort6BytesKeys() throws Exception {
+		// Tuple( (Int,Short), Int )
+
+		@SuppressWarnings("unchecked")
+		List<MemorySegment> memory = createMemory();
+
+		TypeSerializer keySerializer = new TupleSerializer(Tuple2.class, new TypeSerializer[]{
+			IntSerializer.INSTANCE,
+			ShortSerializer.INSTANCE
+		});
+
+		TypeComparator keyComparator = new TupleComparator(
+			new int[]{0,1},
+			new TypeComparator[]{
+				new IntComparator(true),
+				new ShortComparator(true)
+			},
+			new TypeSerializer[] { keySerializer }
+		);
+
+		TypeSerializer[] insideSerializers = {
+			keySerializer,
+			IntSerializer.INSTANCE
+		};
+
+		TupleSerializer<Tuple2<Tuple2<Integer,Short>, Integer>> serializer = new TupleSerializer<>(
+			(Class<Tuple2<Tuple2<Integer,Short>, Integer>>) (Class<?>) Tuple2.class, insideSerializers
+		);
+
+		TupleComparator<Tuple2<Tuple2<Integer,Short>, Integer>> comparators = new TupleComparator<>(
+			new int[]{0}, new TypeComparator[]{ keyComparator },
+			insideSerializers
+		);
+
+		InMemorySorter<Tuple2<Tuple2<Integer,Short>, Integer>> sorter = createSorter( serializer, comparators, memory);
+
+		Random randomGenerator = new Random(SEED);
+
+		Tuple2<Tuple2<Integer,Short>, Integer> record = new Tuple2<>();
+		do {
+
+			Tuple2<Integer,Short> insideTp = new Tuple2<>();
+			insideTp.setFields(randomGenerator.nextInt(), (short)randomGenerator.nextInt());
+			record.setFields(insideTp, randomGenerator.nextInt());
+		}
+		while (sorter.write(record));
+
+		QuickSort qs = new QuickSort();
+		qs.sort(sorter);
+
+		MutableObjectIterator<Tuple2<Tuple2<Integer,Short>, Integer>> iter = sorter.getIterator();
+		Tuple2<Tuple2<Integer,Short>, Integer> readTarget = iter.next();
+
+		Tuple2<Integer,Short> last = readTarget.f0;
+
+		while ((readTarget = iter.next()) != null) {
+			Tuple2<Integer,Short> current = readTarget.f0;
+
+			final int cmp = keyComparator.compare(last, current);
+			if (cmp > 0) {
+				Assert.fail("Next value is not larger or equal to previous value.");
+			}
+
+			last = current;
+		}
+
+		// release the memory occupied by the buffers
+		sorter.dispose();
+		this.memoryManager.release(memory);
+	}
+
+	@Test
+	public void testSort6BytesShortFirstKeys() throws Exception {
+		// Tuple( (Short,Int), Int )
+
+		@SuppressWarnings("unchecked")
+		List<MemorySegment> memory = createMemory();
+
+		TypeSerializer keySerializer = new TupleSerializer(Tuple2.class, new TypeSerializer[]{
+			ShortSerializer.INSTANCE,
+			IntSerializer.INSTANCE
+		});
+
+		TypeComparator keyComparator = new TupleComparator(
+			new int[]{0,1},
+			new TypeComparator[]{
+				new ShortComparator(true),
+				new IntComparator(true)
+			},
+			new TypeSerializer[] { keySerializer }
+		);
+
+		TypeSerializer[] insideSerializers = {
+			keySerializer,
+			IntSerializer.INSTANCE
+		};
+
+		TupleSerializer<Tuple2<Tuple2<Short,Integer>, Integer>> serializer = new TupleSerializer<>(
+			(Class<Tuple2<Tuple2<Short,Integer>, Integer>>) (Class<?>) Tuple2.class, insideSerializers
+		);
+
+		TupleComparator<Tuple2<Tuple2<Short,Integer>, Integer>> comparators = new TupleComparator<>(
+			new int[]{0}, new TypeComparator[]{ keyComparator },
+			insideSerializers
+		);
+
+		InMemorySorter<Tuple2<Tuple2<Short,Integer>, Integer>> sorter = createSorter( serializer, comparators, memory);
+
+		Random randomGenerator = new Random(SEED);
+
+		Tuple2<Tuple2<Short,Integer>, Integer> record = new Tuple2<>();
+
+		int count = 10;
+		do {
+
+			Tuple2<Short,Integer> insideTp = new Tuple2<>();
+			insideTp.setFields( (short)randomGenerator.nextInt(), randomGenerator.nextInt());
+			record.setFields(insideTp, randomGenerator.nextInt());
+		}
+		while (sorter.write(record) && count-- >0);
+
+		QuickSort qs = new QuickSort();
+		qs.sort(sorter);
+
+		MutableObjectIterator<Tuple2<Tuple2<Short,Integer>, Integer>> iter = sorter.getIterator();
+		Tuple2<Tuple2<Short,Integer>, Integer> readTarget = iter.next();
+
+		Tuple2<Short,Integer> last = readTarget.f0;
+
+		while ((readTarget = iter.next()) != null) {
+			Tuple2<Short,Integer> current = readTarget.f0;
+
+			final int cmp = keyComparator.compare(last, current);
+			if (cmp > 0) {
+				Assert.fail("Next value is not larger or equal to previous value.");
+			}
+
+			last = current;
+		}
+
+		// release the memory occupied by the buffers
+		sorter.dispose();
+		this.memoryManager.release(memory);
+	}
+
+	@Test
+	public void testSort5BytesKeys() throws Exception {
+		// Tuple( (Int,Byte), Int )
+
+		@SuppressWarnings("unchecked")
+		List<MemorySegment> memory = createMemory();
+
+		TypeSerializer keySerializer = new TupleSerializer(Tuple2.class, new TypeSerializer[]{
+			IntSerializer.INSTANCE,
+			ByteSerializer.INSTANCE
+		});
+
+		TypeComparator keyComparator = new TupleComparator(
+			new int[]{0,1},
+			new TypeComparator[]{
+				new IntComparator(true),
+				new ByteComparator(true)
+			},
+			new TypeSerializer[] { keySerializer }
+		);
+
+		TypeSerializer[] insideSerializers = {
+			keySerializer,
+			IntSerializer.INSTANCE
+		};
+
+		TupleSerializer<Tuple2<Tuple2<Integer,Byte>, Integer>> serializer = new TupleSerializer<>(
+			(Class<Tuple2<Tuple2<Integer,Byte>, Integer>>) (Class<?>) Tuple2.class, insideSerializers
+		);
+
+		TupleComparator<Tuple2<Tuple2<Integer,Byte>, Integer>> comparators = new TupleComparator<>(
+			new int[]{0}, new TypeComparator[]{ keyComparator },
+			insideSerializers
+		);
+
+		InMemorySorter<Tuple2<Tuple2<Integer,Byte>, Integer>> sorter = createSorter( serializer, comparators, memory);
+
+		Random randomGenerator = new Random(SEED);
+
+		byte[] temporyBytes = new byte[1];
+		Tuple2<Tuple2<Integer,Byte>, Integer> record = new Tuple2<>();
+		do {
+
+			Tuple2<Integer,Byte> insideTp = new Tuple2<>();
+			randomGenerator.nextBytes(temporyBytes);
+			byte randomByte = temporyBytes[0];
+			insideTp.setFields(randomGenerator.nextInt(), randomByte);
+			record.setFields(insideTp, randomGenerator.nextInt());
+		}
+		while (sorter.write(record));
+
+		QuickSort qs = new QuickSort();
+		qs.sort(sorter);
+
+		MutableObjectIterator<Tuple2<Tuple2<Integer,Byte>, Integer>> iter = sorter.getIterator();
+		Tuple2<Tuple2<Integer,Byte>, Integer> readTarget = iter.next();
+
+		Tuple2<Integer,Byte> last = readTarget.f0;
+
+		while ((readTarget = iter.next()) != null) {
+			Tuple2<Integer,Byte> current = readTarget.f0;
+
+			final int cmp = keyComparator.compare(last, current);
+			if (cmp > 0) {
+				Assert.fail("Next value is not larger or equal to previous value.");
+			}
+
+			last = current;
+		}
+
+		// release the memory occupied by the buffers
+		sorter.dispose();
+		this.memoryManager.release(memory);
+	}
 	private InMemorySorter createSorter(TypeSerializer serializer, TypeComparator comparator, List<MemorySegment> memory ) throws IllegalAccessException, TemplateException, IOException, InstantiationException, InvocationTargetException, NoSuchMethodException, ClassNotFoundException {
-		return SorterFactory.createSorter(
+		return this.sorterFactory.createSorter(
 			serializer,
 			comparator,
 			memory
