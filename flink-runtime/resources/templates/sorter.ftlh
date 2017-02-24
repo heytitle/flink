@@ -410,9 +410,9 @@ public final class ${name}<T> implements InMemorySorter<T> {
 		final MemorySegment segI = (MemorySegment)this.sortIndex.get(iBufferNumber);
 		final MemorySegment segJ = (MemorySegment)this.sortIndex.get(jBufferNumber);
 
+        // generated code
 		${swapProcedures}
-
-		//segI.swapBytes(this.swapBuffer, segJ, iBufferOffset, jBufferOffset, this.indexEntrySize);
+		// end
 	}
 
 	@Override
