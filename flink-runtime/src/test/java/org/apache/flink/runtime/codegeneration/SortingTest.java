@@ -36,7 +36,10 @@ import org.apache.flink.runtime.operators.testutils.TestData;
 import org.apache.flink.runtime.operators.testutils.TestData.TupleGenerator.KeyMode;
 import org.apache.flink.runtime.operators.testutils.TestData.TupleGenerator.ValueMode;
 import org.apache.flink.util.MutableObjectIterator;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -44,7 +47,7 @@ import java.util.List;
 import java.util.Random;
 
 
-public class GeneratedSorterTest {
+public class SortingTest {
 	
 	private static final long SEED = 649180756312423613L;
 	
@@ -85,241 +88,7 @@ public class GeneratedSorterTest {
 	}
 
 	@Test
-	public void testWriteAndRead() throws Exception {
-		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
-		final List<MemorySegment> memory = this.memoryManager.allocatePages(new DummyInvokable(), numSegments);
-
-		InMemorySorter<Tuple2<Integer, String>> sorter = newSortBuffer(memory);
-		TestData.TupleGenerator generator = new TestData.TupleGenerator(SEED, KEY_MAX, VALUE_LENGTH, KeyMode.RANDOM,
-			ValueMode.RANDOM_LENGTH);
-
-		// write the records
-		Tuple2<Integer, String> record = new Tuple2<>();
-		int num = -1;
-		do {
-			generator.next(record);
-			num++;
-		}
-		while (sorter.write(record));
-
-		// re-read the records
-		generator.reset();
-		Tuple2<Integer, String> readTarget = new Tuple2<>();
-
-		int i = 0;
-		while (i < num) {
-			generator.next(record);
-			readTarget = sorter.getRecord(readTarget, i++);
-
-			int rk = readTarget.f0;
-			int gk = record.f0;
-
-			String rv = readTarget.f1;
-			String gv = record.f1;
-
-			Assert.assertEquals("The re-read key is wrong", gk, rk);
-			Assert.assertEquals("The re-read value is wrong", gv, rv);
-		}
-
-		// release the memory occupied by the buffers
-		sorter.dispose();
-		this.memoryManager.release(memory);
-	}
-//
-	@Test
-	public void testWriteAndIterator() throws Exception {
-		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
-		final List<MemorySegment> memory = this.memoryManager.allocatePages(new DummyInvokable(), numSegments);
-
-		InMemorySorter<Tuple2<Integer, String>> sorter = newSortBuffer(memory);
-		TestData.TupleGenerator generator = new TestData.TupleGenerator(SEED, KEY_MAX, VALUE_LENGTH, KeyMode.RANDOM,
-			ValueMode.RANDOM_LENGTH);
-
-		// write the records
-		Tuple2<Integer, String> record = new Tuple2<>();
-		do {
-			generator.next(record);
-		}
-		while (sorter.write(record));
-
-		// re-read the records
-		generator.reset();
-		MutableObjectIterator<Tuple2<Integer, String>> iter = sorter.getIterator();
-		Tuple2<Integer, String> readTarget = new Tuple2<>();
-
-		while ((readTarget = iter.next(readTarget)) != null) {
-			generator.next(record);
-
-			int rk = readTarget.f0;
-			int gk = record.f0;
-
-			String rv = readTarget.f1;
-			String gv = record.f1;
-
-			Assert.assertEquals("The re-read key is wrong", gk, rk);
-			Assert.assertEquals("The re-read value is wrong", gv, rv);
-		}
-
-		// release the memory occupied by the buffers
-		sorter.dispose();
-		this.memoryManager.release(memory);
-	}
-
-	@Test
-	public void testReset() throws Exception {
-		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
-		final List<MemorySegment> memory = this.memoryManager.allocatePages(new DummyInvokable(), numSegments);
-
-		InMemorySorter<Tuple2<Integer, String>> sorter = newSortBuffer(memory);
-		TestData.TupleGenerator generator = new TestData.TupleGenerator(SEED, KEY_MAX, VALUE_LENGTH, KeyMode.RANDOM, ValueMode.FIX_LENGTH);
-
-		// write the buffer full with the first set of records
-		Tuple2<Integer, String> record = new Tuple2<>();
-		int num = -1;
-		do {
-			generator.next(record);
-			num++;
-		}
-		while (sorter.write(record));
-
-		sorter.reset();
-
-		// write a second sequence of records. since the values are of fixed length, we must be able to write an equal number
-		generator = new TestData.TupleGenerator(SEED2, KEY_MAX, VALUE_LENGTH, KeyMode.RANDOM, ValueMode.FIX_LENGTH);
-
-		// write the buffer full with the first set of records
-		int num2 = -1;
-		do {
-			generator.next(record);
-			num2++;
-		}
-		while (sorter.write(record));
-
-		Assert.assertEquals("The number of records written after the reset was not the same as before.", num, num2);
-
-		// re-read the records
-		generator.reset();
-		Tuple2<Integer, String> readTarget = new Tuple2<>();
-
-		int i = 0;
-		while (i < num) {
-			generator.next(record);
-			readTarget = sorter.getRecord(readTarget, i++);
-
-			int rk = readTarget.f0;
-			int gk = record.f0;
-
-			String rv = readTarget.f1;
-			String gv = record.f1;
-
-			Assert.assertEquals("The re-read key is wrong", gk, rk);
-			Assert.assertEquals("The re-read value is wrong", gv, rv);
-		}
-
-		// release the memory occupied by the buffers
-		sorter.dispose();
-		this.memoryManager.release(memory);
-	}
-
-	/**
-	 * The swap test fills the sort buffer and swaps all elements such that they are
-	 * backwards. It then resets the generator, goes backwards through the buffer
-	 * and compares for equality.
-	 */
-	@Test
-	public void testSwap() throws Exception {
-		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
-		final List<MemorySegment> memory = this.memoryManager.allocatePages(new DummyInvokable(), numSegments);
-
-		InMemorySorter<Tuple2<Integer, String>> sorter = newSortBuffer(memory);
-		TestData.TupleGenerator generator = new TestData.TupleGenerator(SEED, KEY_MAX, VALUE_LENGTH, KeyMode.RANDOM,
-			ValueMode.RANDOM_LENGTH);
-
-		// write the records
-		Tuple2<Integer, String> record = new Tuple2<>();
-		int num = -1;
-		do {
-			generator.next(record);
-			num++;
-		}
-		while (sorter.write(record));
-
-		// swap the records
-		int start = 0, end = num - 1;
-		while (start < end) {
-			sorter.swap(start++, end--);
-		}
-
-		// re-read the records
-		generator.reset();
-		Tuple2<Integer, String> readTarget = new Tuple2<>();
-
-		int i = num - 1;
-		while (i >= 0) {
-			generator.next(record);
-			readTarget = sorter.getRecord(readTarget, i--);
-
-			int rk = readTarget.f0;
-			int gk = record.f0;
-
-			String rv = readTarget.f1;
-			String gv = record.f1;
-
-			Assert.assertEquals("The re-read key is wrong", gk, rk);
-			Assert.assertEquals("The re-read value is wrong", gv, rv);
-		}
-
-		// release the memory occupied by the buffers
-		sorter.dispose();
-		this.memoryManager.release(memory);
-	}
-
-	/**
-	 * The compare test creates a sorted stream, writes it to the buffer and
-	 * compares random elements. It expects that earlier elements are lower than later
-	 * ones.
-	 */
-	@Test
-	public void testCompare() throws Exception {
-		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
-		final List<MemorySegment> memory = this.memoryManager.allocatePages(new DummyInvokable(), numSegments);
-
-		InMemorySorter<Tuple2<Integer, String>> sorter = newSortBuffer(memory);
-		TestData.TupleGenerator generator = new TestData.TupleGenerator(SEED, KEY_MAX, VALUE_LENGTH, KeyMode.SORTED,
-			ValueMode.RANDOM_LENGTH);
-
-		// write the records
-		Tuple2<Integer, String> record = new Tuple2<>();
-		int num = -1;
-		do {
-			generator.next(record);
-			num++;
-		}
-		while (sorter.write(record));
-
-		// compare random elements
-		Random rnd = new Random(SEED << 1);
-		for (int i = 0; i < 2 * num; i++) {
-			int pos1 = rnd.nextInt(num);
-			int pos2 = rnd.nextInt(num);
-
-			int cmp = sorter.compare(pos1, pos2);
-
-			if (pos1 < pos2) {
-				Assert.assertTrue(cmp <= 0);
-			}
-			else {
-				Assert.assertTrue(cmp >= 0);
-			}
-		}
-
-		// release the memory occupied by the buffers
-		sorter.dispose();
-		this.memoryManager.release(memory);
-	}
-
-	@Test
-	public void testSort() throws Exception {
+	public void testSortIntKeys() throws Exception {
 		final int NUM_RECORDS = 559273;
 
 		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
@@ -364,7 +133,7 @@ public class GeneratedSorterTest {
 	}
 
 	@Test
-	public void testSortShortStringKeys() throws Exception {
+	public void testSortStringKeys() throws Exception {
 
 		@SuppressWarnings("unchecked")
 		List<MemorySegment> memory = createMemory();
