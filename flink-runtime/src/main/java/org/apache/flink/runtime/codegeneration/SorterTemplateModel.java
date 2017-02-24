@@ -28,21 +28,41 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SorterTemplateModel {
-	private final static Integer[] POSSIBLE_FIXEDBYTE_OPERRATORS = {8,4,2,1};
 	public final static String TEMPLATE_NAME = "sorter.ftlh";
+
+	private final static Integer[] POSSIBLE_FIXEDBYTE_OPERRATORS = {8,4,2,1};
 
 	private final HashMap<Integer,String> byteOperatorMapping;
 	private final TypeComparator typeComparator;
 	private final ArrayList<Integer> byteOperators;
 	private final String sorterName;
 	private final int numBytes;
+	private final boolean isKeyFullyDetermined;
 
 	public SorterTemplateModel(TypeComparator typeComparator){
 		this.typeComparator = typeComparator;
 
-		this.byteOperators = generatedSequenceFixedByteOperators(typeComparator.getNormalizeKeyLen());
 
-		this.numBytes      = Math.min(typeComparator.getNormalizeKeyLen(), NormalizedKeySorter.DEFAULT_MAX_NORMALIZED_KEY_LEN);
+		if (this.typeComparator.supportsNormalizedKey()) {
+			// compute the max normalized key length
+			int numPartialKeys;
+			try {
+				numPartialKeys = this.typeComparator.getFlatComparators().length;
+			} catch (Throwable t) {
+				numPartialKeys = 1;
+			}
+
+			int maxLen = Math.min( NormalizedKeySorter.DEFAULT_MAX_NORMALIZED_KEY_LEN, NormalizedKeySorter.MAX_NORMALIZED_KEY_LEN_PER_ELEMENT * numPartialKeys);
+
+			this.numBytes = Math.min(this.typeComparator.getNormalizeKeyLen(), maxLen);
+			this.isKeyFullyDetermined = !this.typeComparator.isNormalizedKeyPrefixOnly(this.numBytes);
+		}
+		else {
+			this.numBytes = 0;
+			this.isKeyFullyDetermined = false;
+		}
+
+		this.byteOperators = generatedSequenceFixedByteOperators(this.numBytes);
 
 		this.byteOperatorMapping = new HashMap<>();
 
@@ -56,14 +76,17 @@ public class SorterTemplateModel {
 	}
 
 	public String generateCodeFilename() {
-		if( byteOperators.size() == 0 ){
-			return "FlexibleSizeSorter";
-		}
 
 		String name = "";
 
 		for( Integer opt : byteOperators ) {
 			name += byteOperatorMapping.get(opt);
+		}
+
+		if(this.isKeyFullyDetermined){
+			name += "FullyDeterminedKey";
+		} else {
+			name += "NonFullyDeterminedKey";
 		}
 
 		name += "Sorter";
@@ -225,11 +248,6 @@ public class SorterTemplateModel {
 				String primitiveClass = byteOperatorMapping.get(byteOperators.get(i));
 				String primitiveType  = primitiveClass.toLowerCase();
 
-				String reverseBytesMethod = primitiveClass;
-				if( primitiveClass.equals("Int") ) {
-					reverseBytesMethod = "Integer";
-				}
-
 				String var1 = "l_"+ i + "_1";
 				String var2 = "l_"+ i + "_2";
 				procedures += String.format("%s %s  = segI.get%s(iBufferOffset + %d);\n", primitiveType, var1, primitiveClass, offset);
@@ -245,12 +263,12 @@ public class SorterTemplateModel {
 		}
 
 		// order can be determined by key
-		if( !typeComparator.isNormalizedKeyPrefixOnly(this.numBytes) ){
+		if( this.isKeyFullyDetermined ){
 			procedures += "return 0;\n";
 		} else {
-			procedures += "final long pointerI = segI.getLong(iBufferOffset) & POINTER_MASK;";
-			procedures += "final long pointerJ = segJ.getLong(jBufferOffset) & POINTER_MASK;";
-			procedures += "return compareRecords(pointerI, pointerJ);";
+			procedures += "final long pointerI = segI.getLong(iBufferOffset) & POINTER_MASK;\n";
+			procedures += "final long pointerJ = segJ.getLong(jBufferOffset) & POINTER_MASK;\n";
+			procedures += "return compareRecords(pointerI, pointerJ);\n";
 		}
 
 		return procedures;
