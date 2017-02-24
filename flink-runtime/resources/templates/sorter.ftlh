@@ -295,7 +295,11 @@ public final class ${name}<T> implements InMemorySorter<T> {
 
 		if (this.numKeyBytes != 0) {
 			this.comparator.putNormalizedKey(record, this.currentSortIndexSegment, this.currentSortIndexOffset + OFFSET_LEN, this.numKeyBytes);
-		}
+		 }
+
+        // generated code
+        ${writeProcedures}
+        // end
 
 		this.currentSortIndexOffset += this.indexEntrySize;
 		this.currentDataBufferOffset = newOffset;
@@ -379,16 +383,9 @@ public final class ${name}<T> implements InMemorySorter<T> {
 		final MemorySegment segI = (MemorySegment)this.sortIndex.get(iBufferNumber);
 		final MemorySegment segJ = (MemorySegment)this.sortIndex.get(jBufferNumber);
 
-		int val = segI.compare(segJ, iBufferOffset + OFFSET_LEN, jBufferOffset + OFFSET_LEN, this.numKeyBytes);
-
-		if (val != 0 || this.normalizedKeyFullyDetermines) {
-			return this.useNormKeyUninverted ? val : -val;
-		}
-
-		final long pointerI = segI.getLong(iBufferOffset) & POINTER_MASK;
-		final long pointerJ = segJ.getLong(jBufferOffset) & POINTER_MASK;
-
-		return compareRecords(pointerI, pointerJ);
+        // generated code
+        ${compareProcedures}
+        // end
 	}
 
 	@Override

@@ -30,6 +30,7 @@ import org.apache.flink.core.memory.MemoryType;
 import org.apache.flink.runtime.memory.MemoryAllocationException;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.operators.sort.InMemorySorter;
+import org.apache.flink.runtime.operators.sort.NormalizedKeySorter;
 import org.apache.flink.runtime.operators.sort.QuickSort;
 import org.apache.flink.runtime.operators.testutils.DummyInvokable;
 import org.apache.flink.runtime.operators.testutils.TestData;
@@ -175,7 +176,7 @@ public class SortingTest {
 	}
 
 	@Test
-	public void testSortLongTypeKeys() throws Exception {
+	public void testSortLongKeys() throws Exception {
 
 		@SuppressWarnings("unchecked")
 		List<MemorySegment> memory = createMemory();
@@ -193,6 +194,7 @@ public class SortingTest {
 		);
 
 		InMemorySorter<Tuple2<Long, Integer>> sorter = createSorter( serializer, comparators, memory);
+//		InMemorySorter<Tuple2<Long, Integer>> sorter = new NormalizedKeySorter<>(serializer, comparators, memory);
 
 		Random randomGenerator = new Random(SEED);
 
@@ -228,7 +230,7 @@ public class SortingTest {
 	}
 
 	@Test
-	public void testSort12BytesIntegerKeys() throws Exception {
+	public void testSort12BytesIntegerLongKeys() throws Exception {
 		// Tuple( (Int,Long), Int )
 
 		@SuppressWarnings("unchecked")
@@ -300,7 +302,7 @@ public class SortingTest {
 	}
 
 	@Test
-	public void testSort12BytesKeys() throws Exception {
+	public void testSort12BytesLongIntKeys() throws Exception {
 		// Tuple( (Long,Int), Int )
 
 		@SuppressWarnings("unchecked")
@@ -372,7 +374,7 @@ public class SortingTest {
 	}
 
 	@Test
-	public void testSort6BytesKeys() throws Exception {
+	public void testSort6BytesIntShortKeys() throws Exception {
 		// Tuple( (Int,Short), Int )
 
 		@SuppressWarnings("unchecked")
@@ -411,11 +413,13 @@ public class SortingTest {
 		Random randomGenerator = new Random(SEED);
 
 		Tuple2<Tuple2<Integer,Short>, Integer> record = new Tuple2<>();
+		int count = 20;
 		do {
 
 			Tuple2<Integer,Short> insideTp = new Tuple2<>();
 			insideTp.setFields(randomGenerator.nextInt(), (short)randomGenerator.nextInt());
 			record.setFields(insideTp, randomGenerator.nextInt());
+//			System.out.println(record);
 		}
 		while (sorter.write(record));
 
@@ -427,12 +431,16 @@ public class SortingTest {
 
 		Tuple2<Integer,Short> last = readTarget.f0;
 
+		System.out.println("------");
 		while ((readTarget = iter.next()) != null) {
 			Tuple2<Integer,Short> current = readTarget.f0;
 
 			final int cmp = keyComparator.compare(last, current);
 			if (cmp > 0) {
+				System.out.println(last);
+				System.out.println(current);
 				Assert.fail("Next value is not larger or equal to previous value.");
+
 			}
 
 			last = current;
@@ -444,7 +452,7 @@ public class SortingTest {
 	}
 
 	@Test
-	public void testSort6BytesShortFirstKeys() throws Exception {
+	public void testSort6BytesShortIntKeys() throws Exception {
 		// Tuple( (Short,Int), Int )
 
 		@SuppressWarnings("unchecked")
@@ -518,7 +526,7 @@ public class SortingTest {
 	}
 
 	@Test
-	public void testSort5BytesKeys() throws Exception {
+	public void testSort5BytesIntByteKeys() throws Exception {
 		// Tuple( (Int,Byte), Int )
 
 		@SuppressWarnings("unchecked")

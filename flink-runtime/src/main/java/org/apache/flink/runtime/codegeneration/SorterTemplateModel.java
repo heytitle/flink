@@ -22,6 +22,7 @@ import org.apache.commons.lang.WordUtils;
 import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.runtime.operators.sort.NormalizedKeySorter;
 
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,11 +35,14 @@ public class SorterTemplateModel {
 	private final TypeComparator typeComparator;
 	private final ArrayList<Integer> byteOperators;
 	private final String sorterName;
+	private final int numBytes;
 
 	public SorterTemplateModel(TypeComparator typeComparator){
 		this.typeComparator = typeComparator;
 
 		this.byteOperators = generatedSequenceFixedByteOperators(typeComparator.getNormalizeKeyLen());
+
+		this.numBytes      = Math.min(typeComparator.getNormalizeKeyLen(), NormalizedKeySorter.DEFAULT_MAX_NORMALIZED_KEY_LEN);
 
 		this.byteOperatorMapping = new HashMap<>();
 
@@ -74,9 +78,13 @@ public class SorterTemplateModel {
 		templateVariables.put("name", this.sorterName);
 
 		// generate swap function string
-		String swapProcedures = generateSwapProcedures();
+		String swapProcedures  = generateSwapProcedures();
+		String writeProcedures = generateWriteProcedures();
+		String compareProcedures = generateCompareProcedures();
 
+		templateVariables.put("writeProcedures", writeProcedures);
 		templateVariables.put("swapProcedures", swapProcedures);
+		templateVariables.put("compareProcedures", compareProcedures);
 
 
 		return templateVariables;
@@ -119,7 +127,7 @@ public class SorterTemplateModel {
 	}
 
 	private String generateSwapProcedures(){
-		String swapProcedures = "";
+		String procedures = "";
 
 		if( this.byteOperators.size() > 0 ) {
 			String temporaryString = "";
@@ -148,13 +156,103 @@ public class SorterTemplateModel {
 
 			}
 
-			swapProcedures = temporaryString
+			procedures = temporaryString
 				+ "\n" + firstSegmentString
 				+ "\n" + secondSegmentString;
 		} else {
-			swapProcedures = "segI.swapBytes(this.swapBuffer, segJ, iBufferOffset, jBufferOffset, this.indexEntrySize);";
+			procedures = "segI.swapBytes(this.swapBuffer, segJ, iBufferOffset, jBufferOffset, this.indexEntrySize);";
 		}
 
-		return swapProcedures;
+		return procedures;
+	}
+
+	private String generateWriteProcedures(){
+		String procedures = "";
+		// skip first operator for prefix
+		if( byteOperators.size() > 1 && ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ) {
+			int offset = 0;
+			for( int i = 1; i < byteOperators.size(); i++ ){
+				int noBytes = byteOperators.get(i);
+				if( noBytes == 1 ){
+					break;
+				}
+				String primitiveClass = byteOperatorMapping.get(noBytes);
+				String primitiveType  = primitiveClass.toLowerCase();
+
+				offset += byteOperators.get(i-1);
+
+				String reverseBytesMethod = primitiveClass;
+				if( primitiveClass.equals("Int") ) {
+					reverseBytesMethod = "Integer";
+				}
+
+				procedures += String.format("%s temp%d = %s.reverseBytes(this.currentSortIndexSegment.get%s(this.currentSortIndexOffset+%d));\n",
+					primitiveType,
+					i,
+					reverseBytesMethod,
+					primitiveClass,
+					offset
+				);
+
+				procedures += String.format("this.currentSortIndexSegment.put%s( this.currentSortIndexOffset + %d, temp%d);\n",
+					primitiveClass,
+					offset,
+					i
+				);
+
+			}
+		}
+
+		return procedures;
+	}
+
+	private String generateCompareProcedures(){
+		String procedures = "";
+
+		// skip first operator for prefix
+		if( byteOperators.size() > 1 && ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ) {
+			procedures += "";
+
+			String sortOrder = "";
+			if(this.typeComparator.invertNormalizedKey()){
+				sortOrder = "-";
+			}
+
+			int offset = 0;
+			for (int i = 1; i < byteOperators.size(); i++) {
+
+				offset += byteOperators.get(i-1);
+				String primitiveClass = byteOperatorMapping.get(byteOperators.get(i));
+				String primitiveType  = primitiveClass.toLowerCase();
+
+				String reverseBytesMethod = primitiveClass;
+				if( primitiveClass.equals("Int") ) {
+					reverseBytesMethod = "Integer";
+				}
+
+				String var1 = "l_"+ i + "_1";
+				String var2 = "l_"+ i + "_2";
+				procedures += String.format("%s %s  = segI.get%s(iBufferOffset + %d);\n", primitiveType, var1, primitiveClass, offset);
+				procedures += String.format("%s %s  = segJ.get%s(jBufferOffset + %d);\n", primitiveType, var2, primitiveClass, offset);
+
+				procedures += String.format("if( %s != %s ) {\n", var1, var2);
+				procedures += String.format("return %s(%s < %s) ^ ( %s < 0 ) ^ ( %s < 0 ) ? -1 : 1;\n", sortOrder, var1, var2, var1, var2 );
+				procedures += "}\n\n";
+
+			}
+		} else {
+			procedures += "";
+		}
+
+		// order can be determined by key
+		if( !typeComparator.isNormalizedKeyPrefixOnly(this.numBytes) ){
+			procedures += "return 0;\n";
+		} else {
+			procedures += "final long pointerI = segI.getLong(iBufferOffset) & POINTER_MASK;";
+			procedures += "final long pointerJ = segJ.getLong(jBufferOffset) & POINTER_MASK;";
+			procedures += "return compareRecords(pointerI, pointerJ);";
+		}
+
+		return procedures;
 	}
 }
