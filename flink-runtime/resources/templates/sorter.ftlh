@@ -297,9 +297,9 @@ public final class ${name}<T> implements InMemorySorter<T> {
 			this.comparator.putNormalizedKey(record, this.currentSortIndexSegment, this.currentSortIndexOffset + OFFSET_LEN, this.numKeyBytes);
 		 }
 
-        // generated code
-        ${writeProcedures}
-        // end
+// generated code
+${writeProcedures}
+// end
 
 		this.currentSortIndexOffset += this.indexEntrySize;
 		this.currentDataBufferOffset = newOffset;
@@ -383,9 +383,10 @@ public final class ${name}<T> implements InMemorySorter<T> {
 		final MemorySegment segI = (MemorySegment)this.sortIndex.get(iBufferNumber);
 		final MemorySegment segJ = (MemorySegment)this.sortIndex.get(jBufferNumber);
 
-        // generated code
-        ${compareProcedures}
-        // end
+// generated code
+${compareProcedures}
+// end
+
 	}
 
 	@Override
@@ -407,9 +408,10 @@ public final class ${name}<T> implements InMemorySorter<T> {
 		final MemorySegment segI = (MemorySegment)this.sortIndex.get(iBufferNumber);
 		final MemorySegment segJ = (MemorySegment)this.sortIndex.get(jBufferNumber);
 
-        // generated code
-		${swapProcedures}
-		// end
+// generated code
+${swapProcedures}
+// end
+
 	}
 
 	@Override
