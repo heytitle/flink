@@ -28,6 +28,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 public class TemplateManager {
@@ -37,23 +38,50 @@ public class TemplateManager {
 	// TODO: generated this folder if it doesn't exist
 	public static String GENERATING_PATH = RESOURCE_PATH + "/generatedcode";
 
-	public static String getGeneratedCode(SorterTemplateModel model) throws IOException, TemplateException {
-		// This configuration  should be created once
-		Configuration cfg = new Configuration();
-		cfg.setDirectoryForTemplateLoading(new File(TEMPLATE_PATH));
-		cfg.setDefaultEncoding("UTF-8");
-		cfg.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
+	private static TemplateManager templateManager;
 
-		Template template = cfg.getTemplate(model.TEMPLATE_NAME);
+	private Configuration templateConf;
+	private Map<String,Boolean> generatedSorter;
+
+	public TemplateManager() throws IOException {
+		templateConf = new Configuration();
+		templateConf.setDirectoryForTemplateLoading(new File(TEMPLATE_PATH));
+		templateConf.setDefaultEncoding("UTF-8");
+		templateConf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
+
+		generatedSorter = new HashMap<>();
+	}
+
+
+	public static TemplateManager getInstance() throws IOException {
+		if( templateManager == null ) {
+			return new TemplateManager();
+		}
+
+		return templateManager;
+	}
+
+
+	public String getGeneratedCode(SorterTemplateModel model) throws IOException, TemplateException {
+		Template template = templateConf.getTemplate(model.TEMPLATE_NAME);
 
 		String generatedFilename = model.getSorterName();
+
+		if( generatedSorter.getOrDefault(generatedFilename, false) ){
+			System.out.println("Serve from cache!");
+			return generatedFilename;
+		}
+
 		FileOutputStream fs = new FileOutputStream(new File(GENERATING_PATH +"/"+generatedFilename+".java"));
 
 		Writer output = new OutputStreamWriter(fs);
 		Map templateVariables = model.getTemplateVariables();
 		template.process(templateVariables, output);
 
-		output.flush();
+		fs.close();
+		output.close();
+
+		generatedSorter.put(generatedFilename, true);
 
 		return generatedFilename;
 	}

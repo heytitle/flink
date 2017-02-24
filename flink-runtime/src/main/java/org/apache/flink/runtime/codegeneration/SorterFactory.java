@@ -31,20 +31,34 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-// TODO: Better way to make SorterFactory a singleton class
 public class SorterFactory {
 
-	// Setup Janino
-	// TODO: find a better way to instantince Janion in this class
-	private static final ClassLoader classLoader = new JavaSourceClassLoader(
-		SorterFactory.class.getClassLoader(),
-			new File[] { new File(TemplateManager.GENERATING_PATH) },
-		"UTF-8"
-	);
+	private static SorterFactory sorterFactory;
 
-	public static InMemorySorter createSorter(TypeSerializer serializer, TypeComparator comparator, List<MemorySegment> memory ) throws IOException, TemplateException, ClassNotFoundException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+	private ClassLoader classLoader;
+	private TemplateManager templateManager;
 
-		String className = TemplateManager.getGeneratedCode(new SorterTemplateModel(comparator));
+	public SorterFactory() throws IOException {
+		this.templateManager = TemplateManager.getInstance();
+		this.classLoader = new JavaSourceClassLoader(
+			SorterFactory.class.getClassLoader(),
+			new File[] { new File(templateManager.GENERATING_PATH) },
+			"UTF-8"
+		);
+	}
+
+	public static SorterFactory getInstance() throws IOException {
+		if( sorterFactory == null ){
+			return new SorterFactory();
+		}
+
+		return sorterFactory;
+	}
+
+
+	public InMemorySorter createSorter(TypeSerializer serializer, TypeComparator comparator, List<MemorySegment> memory ) throws IOException, TemplateException, ClassNotFoundException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+
+		String className = this.templateManager.getGeneratedCode(new SorterTemplateModel(comparator));
 
 		Constructor sorterConstructor = classLoader.loadClass(className).getConstructor(
 			TypeSerializer.class, TypeComparator.class, List.class
