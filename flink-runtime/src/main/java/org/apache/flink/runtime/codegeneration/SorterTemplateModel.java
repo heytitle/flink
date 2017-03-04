@@ -30,11 +30,11 @@ import java.util.Map;
 public class SorterTemplateModel {
 	public final static String TEMPLATE_NAME = "sorter.ftlh";
 
-	private final static Integer[] POSSIBLE_FIXEDBYTE_OPERRATORS = {8,4,2,1};
+	private final static Integer[] POSSIBLE_FIXEDBYTE_OPERATORS = {8,4,2,1};
 
 	private final HashMap<Integer,String> byteOperatorMapping;
 	private final TypeComparator typeComparator;
-	private final ArrayList<Integer> byteOperators;
+	private final ArrayList<Integer> chunkSizes;
 	private final String sorterName;
 	private final int numBytes;
 	private final boolean isKeyFullyDetermined;
@@ -62,7 +62,7 @@ public class SorterTemplateModel {
 			this.isKeyFullyDetermined = false;
 		}
 
-		this.byteOperators = generatedSequenceFixedByteOperators(this.numBytes);
+		this.chunkSizes = generatedSequenceFixedByteOperators(this.numBytes);
 
 		this.byteOperatorMapping = new HashMap<>();
 
@@ -79,7 +79,7 @@ public class SorterTemplateModel {
 
 		String name = "";
 
-		for( Integer opt : byteOperators ) {
+		for( Integer opt : chunkSizes ) {
 			name += byteOperatorMapping.get(opt);
 		}
 
@@ -130,7 +130,7 @@ public class SorterTemplateModel {
 		// greedy checking index
 		int i = 0;
 		while( numberBytes > 0 ) {
-			int bytes = POSSIBLE_FIXEDBYTE_OPERRATORS[i];
+			int bytes = POSSIBLE_FIXEDBYTE_OPERATORS[i];
 			if( bytes <= numberBytes ) {
 				operators.add(bytes);
 				numberBytes -= bytes;
@@ -142,7 +142,7 @@ public class SorterTemplateModel {
 	}
 
 	public ArrayList<Integer> getBytesOperators() {
-		return byteOperators;
+		return chunkSizes;
 	}
 
 	public String getSorterName (){
@@ -152,14 +152,14 @@ public class SorterTemplateModel {
 	private String generateSwapProcedures(){
 		String procedures = "";
 
-		if( this.byteOperators.size() > 0 ) {
+		if( this.chunkSizes.size() > 0 ) {
 			String temporaryString = "";
 			String firstSegmentString = "";
 			String secondSegmentString = "";
 
 			int accOffset = 0;
-			for( int i = 0; i  < byteOperators.size(); i++ ){
-				int numberByte = byteOperators.get(i);
+			for( int i = 0; i  < chunkSizes.size(); i++ ){
+				int numberByte = chunkSizes.get(i);
 				int varIndex  = i+1;
 
 				String primitiveClass = byteOperatorMapping.get(numberByte);
@@ -167,7 +167,7 @@ public class SorterTemplateModel {
 
 				String offsetString = "";
 				if( i > 0 ) {
-					accOffset += byteOperators.get(i-1);
+					accOffset += chunkSizes.get(i-1);
 					offsetString = "+" + accOffset;
 				}
 
@@ -192,17 +192,17 @@ public class SorterTemplateModel {
 	private String generateWriteProcedures(){
 		String procedures = "";
 		// skip first operator for prefix
-		if( byteOperators.size() > 1 && ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ) {
+		if( chunkSizes.size() > 1 && ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ) {
 			int offset = 0;
-			for( int i = 1; i < byteOperators.size(); i++ ){
-				int noBytes = byteOperators.get(i);
+			for( int i = 1; i < chunkSizes.size(); i++ ){
+				int noBytes = chunkSizes.get(i);
 				if( noBytes == 1 ){
 					break;
 				}
 				String primitiveClass = byteOperatorMapping.get(noBytes);
 				String primitiveType  = primitiveClass.toLowerCase();
 
-				offset += byteOperators.get(i-1);
+				offset += chunkSizes.get(i-1);
 
 				String reverseBytesMethod = primitiveClass;
 				if( primitiveClass.equals("Int") ) {
@@ -233,7 +233,7 @@ public class SorterTemplateModel {
 		String procedures = "";
 
 		// skip first operator for prefix
-		if( byteOperators.size() > 1 && ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ) {
+		if( chunkSizes.size() > 1 && ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ) {
 			procedures += "";
 
 			String sortOrder = "";
@@ -242,10 +242,10 @@ public class SorterTemplateModel {
 			}
 
 			int offset = 0;
-			for (int i = 1; i < byteOperators.size(); i++) {
+			for (int i = 1; i < chunkSizes.size(); i++) {
 
-				offset += byteOperators.get(i-1);
-				String primitiveClass = byteOperatorMapping.get(byteOperators.get(i));
+				offset += chunkSizes.get(i-1);
+				String primitiveClass = byteOperatorMapping.get(chunkSizes.get(i));
 				String primitiveType  = primitiveClass.toLowerCase();
 
 				String var1 = "l_"+ i + "_1";
