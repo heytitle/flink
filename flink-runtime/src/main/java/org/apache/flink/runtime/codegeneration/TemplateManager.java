@@ -22,6 +22,8 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -32,6 +34,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class TemplateManager {
+	private static final Logger LOG = LoggerFactory.getLogger(TemplateManager.class);
+
 	public static String RESOURCE_PATH  = "/Users/heytitle/projects/apache-flink/flink-runtime/resources";
 	public static String TEMPLATE_PATH  = RESOURCE_PATH + "/templates";
 
@@ -70,7 +74,9 @@ public class TemplateManager {
 		String generatedFilename = model.getSorterName();
 
 		if( generatedSorter.getOrDefault(generatedFilename, false) ){
-			System.out.println("Serve from cache!");
+			if (LOG.isDebugEnabled()) {
+				LOG.debug("Served from cache : "+generatedFilename);
+			}
 			return generatedFilename;
 		}
 

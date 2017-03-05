@@ -24,6 +24,8 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.operators.sort.InMemorySorter;
 import org.codehaus.janino.JavaSourceClassLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,6 +35,7 @@ import java.util.List;
 
 public class SorterFactory {
 
+	private static final Logger LOG = LoggerFactory.getLogger(SorterFactory.class);
 	private static SorterFactory sorterFactory;
 
 	private ClassLoader classLoader;
@@ -68,7 +71,9 @@ public class SorterFactory {
 
 		Object generatedSorter = sorterConstructor.newInstance(serializer, comparator, memory);
 
-		System.out.println(">> " + generatedSorter.toString());
+		if(LOG.isDebugEnabled()){
+			LOG.debug("Creating sorter : " + generatedSorter.toString());
+		}
 
 		return (InMemorySorter)generatedSorter;
 	}
