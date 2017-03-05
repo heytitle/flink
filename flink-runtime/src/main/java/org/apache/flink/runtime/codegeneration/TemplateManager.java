@@ -33,30 +33,53 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * {@link TemplateManager} is a singleton class that provides template rendering functionalities for code generation.
+ * Such functionalities are caching, writing generated code to a file.
+ */
 public class TemplateManager {
+	// ------------------------------------------------------------------------
+	//                                   Constants
+	// ------------------------------------------------------------------------
+	public static final String RESOURCE_PATH  = "/Users/heytitle/projects/apache-flink/flink-runtime/resources";
+	public static final String TEMPLATE_PATH  = RESOURCE_PATH + "/templates";
+	// TODO: generated this folder if it doesn't exist
+	public static final String GENERATING_PATH      = RESOURCE_PATH + "/generatedcode";
+	public static final String TEMPLATE_ENCODING    = "UTF-8";
+
 	private static final Logger LOG = LoggerFactory.getLogger(TemplateManager.class);
 
-	public static String RESOURCE_PATH  = "/Users/heytitle/projects/apache-flink/flink-runtime/resources";
-	public static String TEMPLATE_PATH  = RESOURCE_PATH + "/templates";
-
-	// TODO: generated this folder if it doesn't exist
-	public static String GENERATING_PATH = RESOURCE_PATH + "/generatedcode";
-
+	// ------------------------------------------------------------------------
+	//                                   Singleton Attribute
+	// ------------------------------------------------------------------------
 	private static TemplateManager templateManager;
 
+	// ------------------------------------------------------------------------
+	//                                   Attributes
+	// ------------------------------------------------------------------------
 	private Configuration templateConf;
 	private Map<String,Boolean> generatedSorter;
 
+	/**
+	 * Constructor
+	 * @throws IOException
+	 */
 	public TemplateManager() throws IOException {
 		templateConf = new Configuration();
 		templateConf.setDirectoryForTemplateLoading(new File(TEMPLATE_PATH));
-		templateConf.setDefaultEncoding("UTF-8");
+		templateConf.setDefaultEncoding(TEMPLATE_ENCODING);
 		templateConf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
 
 		generatedSorter = new HashMap<>();
 	}
 
 
+	/**
+	 * A method to get a singleton instance
+	 * or create one if it has been created yet
+	 * @return
+	 * @throws IOException
+	 */
 	public static TemplateManager getInstance() throws IOException {
 		if( templateManager == null ) {
 			synchronized (TemplateManager.class){
@@ -68,6 +91,14 @@ public class TemplateManager {
 	}
 
 
+	/**
+	 * Render sorter template with generated code provided by SorterTemplateModel and write the content to a file
+	 * and cache the result for later calls
+	 * @param SorterTemplateModel object
+	 * @return name of the generated sorter
+	 * @throws IOException
+	 * @throws TemplateException
+	 */
 	public String getGeneratedCode(SorterTemplateModel model) throws IOException, TemplateException {
 		Template template = templateConf.getTemplate(model.TEMPLATE_NAME);
 

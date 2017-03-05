@@ -33,24 +33,47 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
+/**
+ * {@link SorterFactory} is a singleton class that provides functionalities to create the most suitable sorter
+ * for underlying data based on {@link TypeComparator}
+ */
 public class SorterFactory {
-
+	// ------------------------------------------------------------------------
+	//                                   Constants
+	// ------------------------------------------------------------------------
 	private static final Logger LOG = LoggerFactory.getLogger(SorterFactory.class);
+
+	// ------------------------------------------------------------------------
+	//                                   Singleton Attribute
+	// ------------------------------------------------------------------------
 	private static SorterFactory sorterFactory;
 
+	// ------------------------------------------------------------------------
+	//                                   Attributes
+	// ------------------------------------------------------------------------
 	private ClassLoader classLoader;
 	private TemplateManager templateManager;
 
+	/**
+	 * Constructor
+	 * @throws IOException
+	 */
 	public SorterFactory() throws IOException {
 		this.templateManager = TemplateManager.getInstance();
 		this.classLoader = new JavaSourceClassLoader(
 			SorterFactory.class.getClassLoader(),
-			new File[] { new File(templateManager.GENERATING_PATH) },
-			"UTF-8"
+			new File[] { new File(TemplateManager.GENERATING_PATH) },
+			TemplateManager.TEMPLATE_ENCODING
 		);
 	}
 
-	public synchronized static SorterFactory getInstance() throws IOException {
+	/**
+	 * A method to get a singleton instance
+	 * or create one if it has been created yet
+	 * @return
+	 * @throws IOException
+	 */
+	public static SorterFactory getInstance() throws IOException {
 		if( sorterFactory == null ){
 			synchronized(SorterFactory.class){
 				sorterFactory = new SorterFactory();
@@ -61,7 +84,24 @@ public class SorterFactory {
 	}
 
 
+	/**
+	 * Create a sorter for the given type comparator and
+	 * assign serializer, comparator and memory to the sorter
+	 * @param serializer
+	 * @param comparator
+	 * @param memory
+	 * @return
+	 * @throws IOException
+	 * @throws TemplateException
+	 * @throws ClassNotFoundException
+	 * @throws IllegalAccessException
+	 * @throws InstantiationException
+	 * @throws NoSuchMethodException
+	 * @throws InvocationTargetException
+	 */
 	public InMemorySorter createSorter(TypeSerializer serializer, TypeComparator comparator, List<MemorySegment> memory ) throws IOException, TemplateException, ClassNotFoundException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+
+		// TODO : parameter to enable code generation
 
 		String className = this.templateManager.getGeneratedCode(new SorterTemplateModel(comparator));
 
