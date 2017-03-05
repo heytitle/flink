@@ -39,13 +39,13 @@ import java.util.List;
 
 public class CodeGenerationSorterBaseTest {
 	
-	private static final long SEED = 649180756312423613L;
-	
-	private static final long SEED2 = 97652436586326573L;
+	protected static final long SEED = 649180756312423613L;
 
-	private static final int KEY_MAX = Integer.MAX_VALUE;
+	protected static final long SEED2 = 97652436586326573L;
 
-	private static final int VALUE_LENGTH = 118;
+	protected static final int KEY_MAX = Integer.MAX_VALUE;
+
+	protected static final int VALUE_LENGTH = 118;
 
 	private static final int MEMORY_SIZE = 1024 * 1024 * 64;
 	
@@ -65,6 +65,8 @@ public class CodeGenerationSorterBaseTest {
 	public void beforeTest() throws IOException {
 		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, MEMORY_PAGE_SIZE, MemoryType.HEAP, true);
 		this.sorterFactory = SorterFactory.getInstance();
+
+		Assert.assertTrue("Code generation for sorter is enabled", executionConfig.isCodeGenerationForSorterEnabled());
 	}
 
 	@After

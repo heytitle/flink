@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.codegeneration;
 
-import freemarker.template.TemplateException;
-import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.*;
@@ -27,83 +25,31 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.runtime.TupleComparator;
 import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
 import org.apache.flink.core.memory.MemorySegment;
-import org.apache.flink.core.memory.MemoryType;
-import org.apache.flink.runtime.memory.MemoryAllocationException;
-import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.operators.sort.InMemorySorter;
 import org.apache.flink.runtime.operators.sort.QuickSort;
-import org.apache.flink.runtime.operators.testutils.DummyInvokable;
 import org.apache.flink.runtime.operators.testutils.TestData;
 import org.apache.flink.runtime.operators.testutils.TestData.TupleGenerator.KeyMode;
 import org.apache.flink.runtime.operators.testutils.TestData.TupleGenerator.ValueMode;
 import org.apache.flink.util.MutableObjectIterator;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Random;
 
 
-public class SortingTest {
-
-	private static final long SEED = 649180756312423613L;
-
-	private static final long SEED2 = 97652436586326573L;
-
-	private static final int KEY_MAX = Integer.MAX_VALUE;
-
-	private static final int VALUE_LENGTH = 118;
-
-	private static final int MEMORY_SIZE = 1024 * 1024 * 64;
-
-	private static final int MEMORY_PAGE_SIZE = 32 * 1024;
-
-	private MemoryManager memoryManager;
-	private SorterFactory sorterFactory;
-
-	private static final ExecutionConfig executionConfig = new ExecutionConfig(){
-		{
-			setCodeGenerationForSorterEnabled(true);
-		}
-	};
-
-
-	@Before
-	public void beforeTest() throws IOException {
-		this.memoryManager = new MemoryManager(MEMORY_SIZE, 1, MEMORY_PAGE_SIZE, MemoryType.HEAP, true);
-		this.sorterFactory = SorterFactory.getInstance();
-
-		Assert.assertTrue("Code generation for sorter is enabled", executionConfig.isCodeGenerationForSorterEnabled());
-	}
-
-	@After
-	public void afterTest() {
-		if (!this.memoryManager.verifyEmpty()) {
-			Assert.fail("Memory Leak: Some memory has not been returned to the memory manager.");
-		}
-
-		if (this.memoryManager != null) {
-			this.memoryManager.shutdown();
-			this.memoryManager = null;
-		}
-	}
-
-	private InMemorySorter<Tuple2<Integer, String>> newSortBuffer(List<MemorySegment> memory) throws Exception {
-		return this.sorterFactory.createSorter(executionConfig, TestData.getIntStringTupleSerializer(), TestData.getIntStringTupleComparator(), memory);
-	}
+public class SortingTest extends CodeGenerationSorterBaseTest {
 
 	@Test
 	public void testSortIntKeys() throws Exception {
 		final int NUM_RECORDS = 559273;
 
-		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
-		final List<MemorySegment> memory = this.memoryManager.allocatePages(new DummyInvokable(), numSegments);
+		List<MemorySegment> memory = createMemory();
+		TypeSerializer serializer  = TestData.getIntStringTupleSerializer();
+		TypeComparator comparator  = TestData.getIntStringTupleComparator();
 
-		InMemorySorter<Tuple2<Integer, String>> sorter = newSortBuffer(memory);
+		InMemorySorter<Tuple2<Integer, String>> sorter = createSorter(serializer, comparator, memory);
+
 		TestData.TupleGenerator generator = new TestData.TupleGenerator(SEED, KEY_MAX, VALUE_LENGTH, KeyMode.RANDOM,
 			ValueMode.RANDOM_LENGTH);
 
@@ -243,7 +189,6 @@ public class SortingTest {
 		);
 
 		InMemorySorter<Tuple2<Long, Integer>> sorter = createSorter( serializer, comparators, memory);
-//		InMemorySorter<Tuple2<Long, Integer>> sorter = new NormalizedKeySorter<>(serializer, comparators, memory);
 
 		Random randomGenerator = new Random(SEED);
 
@@ -462,13 +407,10 @@ public class SortingTest {
 		Random randomGenerator = new Random(SEED);
 
 		Tuple2<Tuple2<Integer,Short>, Integer> record = new Tuple2<>();
-		int count = 20;
 		do {
-
 			Tuple2<Integer,Short> insideTp = new Tuple2<>();
 			insideTp.setFields(randomGenerator.nextInt(), (short)randomGenerator.nextInt());
 			record.setFields(insideTp, randomGenerator.nextInt());
-//			System.out.println(record);
 		}
 		while (sorter.write(record));
 
@@ -480,7 +422,6 @@ public class SortingTest {
 
 		Tuple2<Integer,Short> last = readTarget.f0;
 
-		System.out.println("------");
 		while ((readTarget = iter.next()) != null) {
 			Tuple2<Integer,Short> current = readTarget.f0;
 
@@ -541,14 +482,12 @@ public class SortingTest {
 
 		Tuple2<Tuple2<Short,Integer>, Integer> record = new Tuple2<>();
 
-		int count = 10;
 		do {
-
 			Tuple2<Short,Integer> insideTp = new Tuple2<>();
 			insideTp.setFields( (short)randomGenerator.nextInt(), randomGenerator.nextInt());
 			record.setFields(insideTp, randomGenerator.nextInt());
 		}
-		while (sorter.write(record) && count-- >0);
+		while (sorter.write(record));
 
 		QuickSort qs = new QuickSort();
 		qs.sort(sorter);
@@ -648,20 +587,4 @@ public class SortingTest {
 		sorter.dispose();
 		this.memoryManager.release(memory);
 	}
-	private InMemorySorter createSorter(TypeSerializer serializer, TypeComparator comparator, List<MemorySegment> memory ) throws IllegalAccessException, TemplateException, IOException, InstantiationException, InvocationTargetException, NoSuchMethodException, ClassNotFoundException {
-		return this.sorterFactory.createSorter(
-			executionConfig,
-			serializer,
-			comparator,
-			memory
-		);
-	}
-
-	private List<MemorySegment> createMemory() throws MemoryAllocationException {
-		final int numSegments = MEMORY_SIZE / MEMORY_PAGE_SIZE;
-		final List<MemorySegment> memory = this.memoryManager.allocatePages(new DummyInvokable(), numSegments);
-
-		return memory;
-	}
-
 }
