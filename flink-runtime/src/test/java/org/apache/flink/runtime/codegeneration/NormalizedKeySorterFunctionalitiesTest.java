@@ -22,6 +22,7 @@ import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.codegeneration.utils.CodeGenerationSorterBaseTest;
 import org.apache.flink.runtime.operators.sort.InMemorySorter;
 import org.apache.flink.runtime.operators.testutils.TestData;
 import org.apache.flink.runtime.operators.testutils.TestData.TupleGenerator.KeyMode;
@@ -33,7 +34,7 @@ import java.util.List;
 import java.util.Random;
 
 
-public class NormalizedKeySorterFunctionalitiesTest extends CodeGenerationSorterBaseTest{
+public class NormalizedKeySorterFunctionalitiesTest extends CodeGenerationSorterBaseTest {
 	
 
 	@Test
