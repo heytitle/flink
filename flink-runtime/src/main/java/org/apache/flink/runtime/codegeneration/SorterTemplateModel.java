@@ -130,7 +130,7 @@ public class SorterTemplateModel {
 	 * Getter for sorterName which instantiated from constructor
 	 * @return name of the sorter
 	 */
-	public String getSorterName (){
+	public String getSorterName(){
 		return this.sorterName;
 	}
 
@@ -142,7 +142,7 @@ public class SorterTemplateModel {
 	 * Getter for fixedByteChunks
 	 * this method is made for testing proposed
 	 */
-	protected ArrayList<Integer> getBytesOperators() {
+	protected ArrayList<Integer> getBytesOperators(){
 		return fixedByteChunks;
 	}
 
