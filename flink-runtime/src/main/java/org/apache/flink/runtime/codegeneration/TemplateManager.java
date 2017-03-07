@@ -41,10 +41,10 @@ public class TemplateManager {
 	// ------------------------------------------------------------------------
 	//                                   Constants
 	// ------------------------------------------------------------------------
-	public static final String RESOURCE_PATH  = "/Users/heytitle/projects/apache-flink/flink-runtime/resources";
-	public static final String TEMPLATE_PATH  = RESOURCE_PATH + "/templates";
+	public static final String RESOURCE_PATH  = createTemporaryDirectory();
+	public static final String TEMPLATE_PATH  = createSubFolder(RESOURCE_PATH , "templates");
 	// TODO: generated this folder if it doesn't exist
-	public static final String GENERATING_PATH      = RESOURCE_PATH + "/generatedcode";
+	public static final String GENERATING_PATH      = createSubFolder(RESOURCE_PATH , "generatedcode");
 	public static final String TEMPLATE_ENCODING    = "UTF-8";
 
 	private static final Logger LOG = LoggerFactory.getLogger(TemplateManager.class);
@@ -123,5 +123,36 @@ public class TemplateManager {
 		generatedSorter.put(generatedFilename, true);
 
 		return generatedFilename;
+	}
+
+
+	/**
+	 * Generated a Temporory directory for the freemaker template File
+	 * @retun the absolute path as String*
+	 */
+	private static String createTemporaryDirectory() {
+		try {
+			File tempDirectory;
+			tempDirectory = File.createTempFile("codegeneration", Long.toString(System.nanoTime()));
+			tempDirectory.delete();
+			tempDirectory.mkdir();
+
+			return tempDirectory.getAbsolutePath();
+		}catch (IOException e) {
+
+			return "";
+		}
+	}
+
+
+	/**
+	 * Create a subfolder
+	 * @param path of the main folder
+	 * @return path of the new */
+	private static String createSubFolder (String pathMainFolder, String nameSubfolder){
+		File tempDirectory = new File(pathMainFolder + "/" +nameSubfolder);
+		tempDirectory.delete();
+		tempDirectory.mkdir();
+		return pathMainFolder + "/" +nameSubfolder;
 	}
 }
