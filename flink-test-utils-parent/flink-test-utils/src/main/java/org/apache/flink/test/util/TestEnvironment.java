@@ -30,10 +30,6 @@ import org.apache.flink.optimizer.plandump.PlanJSONDumpGenerator;
 import org.apache.flink.optimizer.plantranslate.JobGraphGenerator;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.LocalFlinkMiniCluster;
-import org.junit.runners.Parameterized;
-
-import java.util.Arrays;
-import java.util.Collection;
 
 public class TestEnvironment extends ExecutionEnvironment {
 
