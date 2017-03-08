@@ -18,6 +18,7 @@
 
 package org.apache.flink.test.util;
 
+import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.runtime.minicluster.LocalFlinkMiniCluster;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -51,7 +52,7 @@ import java.util.Collection;
  *       // test code
  *       env.execute();
  *   }
- *
+
  * }</pre>
  */
 public class MultipleProgramsTestBase extends TestBaseUtils {
@@ -64,7 +65,7 @@ public class MultipleProgramsTestBase extends TestBaseUtils {
 		CLUSTER,
 		COLLECTION
 	}
-	
+
 	// ------------------------------------------------------------------------
 	//  The mini cluster that is shared across tests
 	// ------------------------------------------------------------------------
@@ -76,23 +77,28 @@ public class MultipleProgramsTestBase extends TestBaseUtils {
 	protected static LocalFlinkMiniCluster cluster = null;
 	
 	// ------------------------------------------------------------------------
-	
 	protected final TestExecutionMode mode;
+	protected final ExecutionEnvironment executionEnvironment;
 
-	
 	public MultipleProgramsTestBase(TestExecutionMode mode) {
 		this.mode = mode;
-		
+
+		ExecutionEnvironment env = null;
+
 		switch(mode){
 			case CLUSTER:
 				TestEnvironment clusterEnv = new TestEnvironment(cluster, 4);
 				clusterEnv.setAsContext();
+				env = clusterEnv;
 				break;
 			case COLLECTION:
 				CollectionTestEnvironment collectionEnv = new CollectionTestEnvironment();
 				collectionEnv.setAsContext();
+				env = collectionEnv;
 				break;
 		}
+
+		executionEnvironment = env;
 	}
 
 	// ------------------------------------------------------------------------
