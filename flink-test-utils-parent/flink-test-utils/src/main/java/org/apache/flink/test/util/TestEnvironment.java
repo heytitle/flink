@@ -30,6 +30,10 @@ import org.apache.flink.optimizer.plandump.PlanJSONDumpGenerator;
 import org.apache.flink.optimizer.plantranslate.JobGraphGenerator;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.LocalFlinkMiniCluster;
+import org.junit.runners.Parameterized;
+
+import java.util.Arrays;
+import java.util.Collection;
 
 public class TestEnvironment extends ExecutionEnvironment {
 
@@ -62,6 +66,13 @@ public class TestEnvironment extends ExecutionEnvironment {
 			getConfig().enableObjectReuse();
 		} else {
 			getConfig().disableObjectReuse();
+		}
+	}
+
+	public TestEnvironment(LocalFlinkMiniCluster executor, int parallelism, boolean isObjectReuseEnabled, boolean isCodeGenerationEnabled ){
+		this(executor, parallelism, isObjectReuseEnabled );
+		if( isCodeGenerationEnabled){
+			getConfig().setCodeGenerationForSorterEnabled(isCodeGenerationEnabled);
 		}
 	}
 
@@ -101,7 +112,7 @@ public class TestEnvironment extends ExecutionEnvironment {
 		ExecutionEnvironmentFactory factory = new ExecutionEnvironmentFactory() {
 			@Override
 			public ExecutionEnvironment createExecutionEnvironment() {
-				lastEnv = new TestEnvironment(executor, getParallelism(), getConfig().isObjectReuseEnabled());
+				lastEnv = new TestEnvironment(executor, getParallelism(), getConfig().isObjectReuseEnabled(), getConfig().isCodeGenerationForSorterEnabled() );
 				return lastEnv;
 			}
 		};
