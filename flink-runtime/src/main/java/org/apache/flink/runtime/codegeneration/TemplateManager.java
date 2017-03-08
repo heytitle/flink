@@ -114,7 +114,6 @@ public class TemplateManager {
 				if (LOG.isDebugEnabled()) {
 					LOG.debug("Served from cache : "+generatedFilename);
 				}
-				System.out.println("Serving from cache");
 				return generatedFilename;
 			}
 
