@@ -23,7 +23,6 @@ import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
 import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,8 +65,7 @@ public class TemplateManager {
 	 */
 	public TemplateManager() throws IOException {
 		templateConf = new Configuration();
-		String templatePath = TemplateManager.class.getClassLoader().getResource("templates").getPath();
-		templateConf.setDirectoryForTemplateLoading(new File(templatePath));
+		templateConf.setClassForTemplateLoading(TemplateManager.class, "/templates");
 		templateConf.setDefaultEncoding(TEMPLATE_ENCODING);
 		templateConf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
 
