@@ -22,6 +22,7 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.FileUtils;
 import org.slf4j.Logger;
@@ -134,8 +135,11 @@ public class TemplateManager {
 	 * Prepare directory for storing generated code
 	 * @return path of the directory */
 	private String prepareDirectoryGeneratedCode() throws IOException {
-		String temporaryDir = EnvironmentInformation.getTemporaryFileDirectory();
-		File dirForGeneratedCode = new File(temporaryDir + "/flink-codegeneration");
+		org.apache.flink.configuration.Configuration configuration = new org.apache.flink.configuration.Configuration();
+		final String[] temporaryDir = configuration.getString(
+			ConfigConstants.TASK_MANAGER_TMP_DIR_KEY,
+			ConfigConstants.DEFAULT_TASK_MANAGER_TMP_PATH).split(",|" + File.pathSeparator);
+		File dirForGeneratedCode = new File(temporaryDir[0] + "/flink-codegeneration");
 
 		if (!dirForGeneratedCode.exists()) {
 			LOG.debug("Creating diretory for generated code at : "+ dirForGeneratedCode.getAbsolutePath());
