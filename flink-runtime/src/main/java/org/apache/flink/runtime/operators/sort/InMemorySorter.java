@@ -113,4 +113,43 @@ public interface InMemorySorter<T> extends IndexedSortable {
 	 * @throws IOException Thrown, if an I/O exception occurred writing to the output view.
 	 */
 	public void writeToOutput(ChannelWriterOutputView output, int start, int num) throws IOException;
+
+	/** Quicksort **/
+	void fix(IndexedSortable s, int pN, int pO, int rN, int rO);
+
+	/**
+	 * Deepest recursion before giving up and doing a heapsort.
+	 * Returns 2 * ceil(log(n)).
+	 */
+	int getMaxDepth(int x);
+
+	/**
+	 * Sort the given range of items using quick sort. {@inheritDoc} If the recursion depth falls below
+	 * {@link #getMaxDepth}, then switch to {@link HeapSort}.
+	 */
+	void sort(final IndexedSortable s, int p, int r);
+
+	void sort(IndexedSortable s);
+
+	void sort();
+
+	/**
+	 * Sort the given range of items using quick sort. If the recursion depth falls below
+	 * {@link #getMaxDepth}, then switch to {@link HeapSort}.
+	 *
+	 * @param s paged sortable
+	 * @param recordsPerSegment number of records per memory segment
+	 * @param recordSize number of bytes per record
+	 * @param maxOffset offset of a last record in a memory segment
+	 * @param p index of first record in range
+	 * @param pN page number of first record in range
+	 * @param pO page offset of first record in range
+	 * @param r index of last-plus-one'th record in range
+	 * @param rN page number of last-plus-one'th record in range
+	 * @param rO page offset of last-plus-one'th record in range
+	 * @param depth recursion depth
+	 *
+	 * @see #sort(IndexedSortable, int, int)
+	 */
+	void sortInternal(final IndexedSortable s, int recordsPerSegment, int recordSize, int maxOffset, int p, int pN, int pO, int r, int rN, int rO, int depth);
 }

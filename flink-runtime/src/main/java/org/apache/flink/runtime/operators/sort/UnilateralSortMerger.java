@@ -1141,8 +1141,8 @@ public class UnilateralSortMerger<E> implements Sorter<E> {
 						LOG.debug("Sorting buffer " + element.id + ".");
 					}
 
-					this.sorter.sort(element.buffer);
-					
+					element.buffer.sort();
+
 					if (LOG.isDebugEnabled()) {
 						LOG.debug("Sorted buffer " + element.id + ".");
 					}

@@ -184,7 +184,7 @@ public class ChainedReduceCombineDriver<T> extends ChainedDriver<T, T> {
 		final InMemorySorter<T> sorter = this.sorter;
 
 		if (!sorter.isEmpty()) {
-			sortAlgo.sort(sorter);
+			sorter.sort();
 
 			final TypeSerializer<T> serializer = this.serializer;
 			final TypeComparator<T> comparator = this.comparator;

@@ -211,7 +211,7 @@ public class SynchronousChainedCombineDriver<IN, OUT> extends ChainedDriver<IN, 
 
 		if (objectReuseEnabled) {
 			if (!sorter.isEmpty()) {
-				this.sortAlgo.sort(sorter);
+				sorter.sort();
 				// run the combiner
 				final ReusingKeyGroupedIterator<IN> keyIter = new ReusingKeyGroupedIterator<IN>(sorter.getIterator(), this.serializer, this.groupingComparator);
 
@@ -227,7 +227,7 @@ public class SynchronousChainedCombineDriver<IN, OUT> extends ChainedDriver<IN, 
 			}
 		} else {
 			if (!sorter.isEmpty()) {
-				this.sortAlgo.sort(sorter);
+				sorter.sort();
 				// run the combiner
 				final NonReusingKeyGroupedIterator<IN> keyIter = new NonReusingKeyGroupedIterator<IN>(sorter.getIterator(), this.groupingComparator);
 
