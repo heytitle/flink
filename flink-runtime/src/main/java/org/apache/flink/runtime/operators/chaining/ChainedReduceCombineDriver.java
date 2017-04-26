@@ -26,6 +26,7 @@ import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.codegeneration.SorterFactory;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.operators.BatchTask;
@@ -33,8 +34,8 @@ import org.apache.flink.runtime.operators.DriverStrategy;
 import org.apache.flink.runtime.operators.hash.InPlaceMutableHashTable;
 import org.apache.flink.runtime.operators.sort.FixedLengthRecordSorter;
 import org.apache.flink.runtime.operators.sort.InMemorySorter;
-import org.apache.flink.runtime.operators.sort.NormalizedKeySorter;
 import org.apache.flink.runtime.operators.sort.QuickSort;
+import org.apache.flink.runtime.taskexecutor.TaskManagerConfiguration;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.MutableObjectIterator;
 import org.slf4j.Logger;
@@ -123,7 +124,9 @@ public class ChainedReduceCombineDriver<T> extends ChainedDriver<T, T> {
 					serializer.getLength() > 0 && serializer.getLength() <= THRESHOLD_FOR_IN_PLACE_SORTING) {
 					sorter = new FixedLengthRecordSorter<T>(serializer, comparator.duplicate(), memory);
 				} else {
-					sorter = new NormalizedKeySorter<T>(serializer, comparator.duplicate(), memory);
+					TaskManagerConfiguration taskConf = TaskManagerConfiguration.fromConfiguration(this.parent.getTaskConfiguration());
+					sorter = SorterFactory.getInstance(taskConf)
+						.createSorter(this.parent.getExecutionConfig(), serializer, comparator.duplicate(), memory);
 				}
 				break;
 			case HASHED_PARTIAL_REDUCE:
