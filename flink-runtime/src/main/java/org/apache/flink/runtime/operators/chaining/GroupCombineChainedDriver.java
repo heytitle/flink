@@ -27,13 +27,14 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerFactory;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.codegeneration.SorterFactory;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.operators.BatchTask;
 import org.apache.flink.runtime.operators.sort.FixedLengthRecordSorter;
 import org.apache.flink.runtime.operators.sort.InMemorySorter;
-import org.apache.flink.runtime.operators.sort.NormalizedKeySorter;
 import org.apache.flink.runtime.operators.sort.QuickSort;
+import org.apache.flink.runtime.taskexecutor.TaskManagerConfiguration;
 import org.apache.flink.runtime.util.NonReusingKeyGroupedIterator;
 import org.apache.flink.runtime.util.ReusingKeyGroupedIterator;
 import org.apache.flink.util.Collector;
@@ -119,7 +120,10 @@ public class GroupCombineChainedDriver<IN, OUT> extends ChainedDriver<IN, OUT> {
 		{
 			this.sorter = new FixedLengthRecordSorter<IN>(this.serializer, sortingComparator.duplicate(), memory);
 		} else {
-			this.sorter = new NormalizedKeySorter<IN>(this.serializer, sortingComparator.duplicate(), memory);
+
+			TaskManagerConfiguration taskConf = TaskManagerConfiguration.fromConfiguration(this.parent.getTaskConfiguration());
+			this.sorter = SorterFactory.getInstance(taskConf)
+				.createSorter(this.executionConfig, this.serializer, sortingComparator.duplicate(), memory);
 		}
 
 		if (LOG.isDebugEnabled()) {

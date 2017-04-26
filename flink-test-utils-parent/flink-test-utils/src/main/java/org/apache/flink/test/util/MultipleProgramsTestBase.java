@@ -51,7 +51,7 @@ import java.util.Collection;
  *       // test code
  *       env.execute();
  *   }
- *
+
  * }</pre>
  */
 public class MultipleProgramsTestBase extends TestBaseUtils {
@@ -64,8 +64,9 @@ public class MultipleProgramsTestBase extends TestBaseUtils {
 		CLUSTER,
 		CLUSTER_OBJECT_REUSE,
 		COLLECTION,
+		CLUSTER_WITH_CODEGENERATION_ENABLED
 	}
-	
+
 	// ------------------------------------------------------------------------
 	//  The mini cluster that is shared across tests
 	// ------------------------------------------------------------------------
@@ -77,13 +78,11 @@ public class MultipleProgramsTestBase extends TestBaseUtils {
 	protected static LocalFlinkMiniCluster cluster = null;
 	
 	// ------------------------------------------------------------------------
-	
 	protected final TestExecutionMode mode;
 
-	
 	public MultipleProgramsTestBase(TestExecutionMode mode) {
 		this.mode = mode;
-		
+
 		switch(mode){
 			case CLUSTER:
 				new TestEnvironment(cluster, 4).setAsContext();
@@ -94,6 +93,11 @@ public class MultipleProgramsTestBase extends TestBaseUtils {
 			case COLLECTION:
 				new CollectionTestEnvironment().setAsContext();
 				break;
+			case CLUSTER_WITH_CODEGENERATION_ENABLED:
+				TestEnvironment env = new TestEnvironment(cluster, 4);
+				env.setAsContext();
+				env.getConfig().setCodeGenerationForSorterEnabled(true);
+
 		}
 	}
 
@@ -124,6 +128,7 @@ public class MultipleProgramsTestBase extends TestBaseUtils {
 	public static Collection<Object[]> executionModes() {
 		return Arrays.asList(
 				new Object[] { TestExecutionMode.CLUSTER },
+				new Object[] { TestExecutionMode.CLUSTER_WITH_CODEGENERATION_ENABLED },
 				new Object[] { TestExecutionMode.COLLECTION });
 	}
 }

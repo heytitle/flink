@@ -284,6 +284,15 @@ public final class FixedLengthRecordSorter<T> implements InMemorySorter<T> {
 	}
 
 	@Override
+	public int compare(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset) {
+		final MemorySegment segI = this.sortBuffer.get(iBufferNumber);
+		final MemorySegment segJ = this.sortBuffer.get(jBufferNumber);
+
+		int val = segI.compare(segJ, iBufferOffset, jBufferOffset, this.numKeyBytes);
+		return this.useNormKeyUninverted ? val : -val;
+	}
+
+	@Override
 	public void swap(int i, int j) {
 		final int segmentNumberI = i / this.recordsPerSegment;
 		final int segmentOffsetI = (i % this.recordsPerSegment) * this.recordSize;
@@ -300,6 +309,14 @@ public final class FixedLengthRecordSorter<T> implements InMemorySorter<T> {
 		final MemorySegment segJ = this.sortBuffer.get(segmentNumberJ);
 
 		segI.swapBytes(this.swapBuffer, segJ, segmentOffsetI, segmentOffsetJ, this.recordSize);
+	}
+
+	@Override
+	public void swap(int iBufferNumber, int iBufferOffset, int jBufferNumber, int jBufferOffset) {
+		final MemorySegment segI = this.sortBuffer.get(iBufferNumber);
+		final MemorySegment segJ = this.sortBuffer.get(jBufferNumber);
+
+		segI.swapBytes(this.swapBuffer, segJ, iBufferOffset, jBufferOffset, this.recordSize);
 	}
 
 	@Override
